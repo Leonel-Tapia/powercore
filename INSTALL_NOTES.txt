@@ -1,0 +1,53 @@
+============================================================
+PowerCore / CoreEngine - Installation Notes
+============================================================
+
+1. PostgreSQL Installation
+------------------------------------------------------------
+A PostgreSQL 18 installation was detected on this system.
+
+Data directory location:
+C:\Program Files\PostgreSQL\18\data
+
+This directory contains the PostgreSQL cluster used by the
+application. Do not modify or delete this folder unless you
+are performing a controlled backup or maintenance operation.
+
+2. Required Python Environment
+------------------------------------------------------------
+PowerCore requires the following Python packages:
+
+fastapi==0.136.1
+uvicorn==0.46.0
+Jinja2==3.1.6
+SQLAlchemy==2.0.49
+python-multipart==0.0.27
+
+These dependencies must be installed inside the virtual
+environment (venv) using:
+
+pip install -r requirements.txt
+
+3. Virtual Environment
+------------------------------------------------------------
+Ensure the virtual environment is activated before running
+any command:
+
+Windows (PowerShell):
+.\venv\Scripts\Activate.ps1
+
+4. Application Startup
+------------------------------------------------------------
+To start the application:
+
+uvicorn app.main:app --reload
+
+5. Backup Notes
+------------------------------------------------------------
+The PostgreSQL data directory should be backed up regularly.
+Use pg_dump or a scheduled backup script to ensure data
+integrity.
+
+============================================================
+End of INSTALL_NOTES
+============================================================
