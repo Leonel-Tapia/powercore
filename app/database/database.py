@@ -1,9 +1,14 @@
+# /app/database/database.py | Updated: 2026-08-30
+import os
 from sqlalchemy import create_engine
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import sessionmaker
 
-# Reemplaza 'tu_password' con tu contraseña de Postgres
-SQLALCHEMY_DATABASE_URL = "postgresql://postgres:leotap@localhost:5432/PowerCore_DB"
+# Si existe una variable de entorno en la nube, la usa; si no, usa tu base de datos local de la laptop
+SQLALCHEMY_DATABASE_URL = os.getenv(
+    "DATABASE_URL",
+    "postgresql://postgres:leotap@localhost:5432/PowerCore_DB"
+)
 
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
