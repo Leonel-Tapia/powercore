@@ -93,6 +93,17 @@
             line-height: 1.4;
             width: 350px;
         }
+
+        /* Estilo para el logo */
+        .logo-container {
+            text-align: center;
+            margin-bottom: 15px;
+        }
+
+        .logo-container img {
+            max-width: 150px;
+            height: auto;
+        }
     </style>
 </head>
 
@@ -100,6 +111,12 @@
 
     <div class="login-container">
         <form action="/auth/login" method="POST" style="width: 100%;">
+            
+            <!-- Logo -->
+            <div class="logo-container">
+                <img src="{{ url_for('static', path='images/bms.jpg') }}" alt="Logo">
+            </div>
+
             <h2>{{company_name}}</h2>
 
             <label>Username</label>
@@ -120,7 +137,7 @@
 
     <div class="footer-text">
         Project Started: 2025-09-29
-        Demo Version — PowerCore ERP — Developed by Leonel Tapia —Version: 2026.08.27
+        Demo Version — PowerCore ERP — Developed by Leonel Tapia —Version: 2026.09.02
     </div>
 
 </body>

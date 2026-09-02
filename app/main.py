@@ -64,6 +64,9 @@ app = FastAPI(title="PowerCore System")
 # 🔥 ACTIVAR SESIONES
 app.add_middleware(SessionMiddleware, secret_key="PowerCoreSecretKey2026")
 
+# ✅ MONTAJE DE ARCHIVOS ESTÁTICOS (logos, imágenes, CSS, etc.)
+app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
 # ---------------------------------------------------------
 # REGISTRO DE ROUTERS (Ordenado por flujo de usuario)
 # ---------------------------------------------------------
