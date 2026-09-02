@@ -30,7 +30,5 @@ class Company(Base):
     labor_cost = Column(Numeric(10, 2), default=0.00)
     materials_cost = Column(Numeric(10, 2), default=0.00)
     misc_cost = Column(Numeric(10, 2), default=0.00)
-    # Campo para el logo (NUEVO) 👇
-    logo_url = Column(String(500), nullable=True) 
-    
+     
     registration_date = Column(DateTime(timezone=True), server_default=func.now())
