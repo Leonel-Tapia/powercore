@@ -1,4 +1,4 @@
-<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-07 (technician selector in top bar) -->
+<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-08 (added Email button & modal) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -718,6 +718,10 @@
                     <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openPrintPreview()">
                         🖨 Print
                     </button>
+                    <!-- Botón Email -->
+                    <button type="button" class="btn btn-outline-primary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openEmailModal()">
+                        ✉️ Email
+                    </button>
                     <button type="button" class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openActivityModal()">
                         📋 Activity
                     </button>
@@ -974,6 +978,30 @@
         </div>
     </div>
 </div>
+
+<!-- ============================================================ -->
+<!-- MODAL EMAIL -->
+<!-- ============================================================ -->
+<div id="emailModal" class="modal" style="display:none;">
+    <div class="modal-content" style="width: 400px; max-width: 90%;">
+        <h4 class="mb-3 text-center">Send Invoice by Email</h4>
+        <form id="emailForm" method="POST" action="/invoices/email/{{ invoice.id }}">
+            <div class="mb-2">
+                <label class="fw-bold small">Recipient Email <span class="text-danger">*</span></label>
+                <input type="email" name="email_to" class="form-control form-control-sm" required placeholder="example@mail.com">
+            </div>
+            <div class="d-flex justify-content-between mt-3">
+                <button type="button" class="btn btn-secondary btn-sm" onclick="closeEmailModal()">Cancel</button>
+                <button type="submit" class="btn btn-primary btn-sm">Send</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<script>
+function openEmailModal() { document.getElementById("emailModal").style.display = "flex"; }
+function closeEmailModal() { document.getElementById("emailModal").style.display = "none"; }
+</script>
 
 <!-- ============================================================ -->
 <!-- SCRIPTS -->

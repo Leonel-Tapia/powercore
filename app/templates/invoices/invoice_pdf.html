@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Invoice #{{ invoice.id }}</title>
+    <style>
+        body { font-family: Arial, sans-serif; font-size: 12px; margin: 20px; }
+        .header { background: #0d6e6e; color: white; padding: 10px; }
+        .section { margin: 10px 0; border: 1px solid #ddd; padding: 8px; }
+        .section-title { font-weight: bold; border-bottom: 1px solid #0d6e6e; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #ddd; padding: 4px; text-align: left; }
+        .total-row { font-weight: bold; }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h2>INVOICE #{{ invoice.id }}</h2>
+        <p>Status: {{ invoice.status }}</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Customer</div>
+        <p><strong>{{ customer.name if customer else 'N/A' }}</strong></p>
+        <p>{{ customer.address if customer else '' }}</p>
+        <p>{{ customer.phone if customer else '' }}</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Vehicle</div>
+        <p>VIN: {{ invoice.vehicle_vin or 'N/A' }}</p>
+        <p>{{ invoice.vehicle_make or '' }} {{ invoice.vehicle_model or '' }}</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Appointment</div>
+        <p>{{ invoice.estimated_appointment_date }} at {{ invoice.estimated_appointment_time }}</p>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Items</div>
+        <table>
+            <thead>
+                <tr><th>Part</th><th>Qty</th><th>Price</th><th>Tax</th></tr>
+            </thead>
+            <tbody>
+                {% for item in invoice_items %}
+                <tr>
+                    <td>{{ item.product_name }}</td>
+                    <td>{{ item.quantity }}</td>
+                    <td>${{ "%.2f"|format(item.price or 0) }}</td>
+                    <td>${{ "%.2f"|format(item.tax_amount or 0) }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Summary</div>
+        <p>Subtotal: ${{ "%.2f"|format(invoice.subtotal or 0) }}</p>
+        <p>Tax: ${{ "%.2f"|format(invoice.tax or 0) }}</p>
+        <p><strong>Total: ${{ "%.2f"|format(invoice.total or 0) }}</strong></p>
+    </div>
+
+    <p style="text-align:center; margin-top:20px; color:#888; font-size:10px;">
+        PowerCore ERP — Generated on {{ now.strftime('%Y-%m-%d %H:%M') }}
+    </p>
+</body>
+</html>
