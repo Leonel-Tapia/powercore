@@ -969,7 +969,7 @@ async def send_invoice_email(
         part.add_header("Content-Disposition", f"attachment; filename=invoice_{invoice.id}.pdf")
         msg.attach(part)
 
-        with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+        with smtplib.SMTP(os.getenv("EMAIL_HOST", "smtp.gmail.com"), int(os.getenv("EMAIL_PORT", 587))) as server:
             server.starttls()
             server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASSWORD"))
             server.send_message(msg)
