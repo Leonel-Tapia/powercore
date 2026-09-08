@@ -7,3 +7,4 @@ psycopg2-binary==2.9.12
 email-validator==2.1.0.post1
 itsdangerous==2.2.0
 python-dotenv==1.0.1
+xhtml2pdf==0.2.16
