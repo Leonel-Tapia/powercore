@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-07 (sort by appointment time ascending, added technician assignment)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (added email sending)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
@@ -18,6 +18,17 @@ from app.models.inventory.year_model import Year
 from app.models.inventory.time_model import TimeCatalog
 from app.models.company.company import Company
 from app.models.company.user import User
+
+# ===== NUEVAS IMPORTACIONES PARA EMAIL =====
+import smtplib
+import os
+from email.mime.multipart import MIMEMultipart
+from email.mime.base import MIMEBase
+from email.mime.text import MIMEText
+from email import encoders
+from io import BytesIO
+from xhtml2pdf import pisa
+# ============================================
 
 router = APIRouter(
     prefix="/invoices",
@@ -62,7 +73,6 @@ def view_invoice(
         technician = db.query(User).filter(User.id == invoice.technician_id).first()
         technician_name = technician.full_name if technician else None
 
-    # Obtener lista de técnicos para el selector
     technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
 
     return templates.TemplateResponse(
@@ -82,7 +92,7 @@ def view_invoice(
             "balance_due": balance_due,
             "activities": activities,
             "technician_name": technician_name,
-            "technicians": technicians  # <-- NUEVO: lista de técnicos
+            "technicians": technicians
         }
     )
 
@@ -205,7 +215,7 @@ def update_invoice(
     alt_phone: Optional[str] = Form(None),
     alt_relationship: Optional[str] = Form(None),
     mobile_fee_override: Optional[str] = Form(None),
-    technician_id: Optional[int] = Form(None),  # <-- NUEVO: ID del técnico asignado
+    technician_id: Optional[int] = Form(None),
     product_name: List[str] = Form([], alias="product_name[]"),
     description: List[str] = Form([], alias="description[]"),
     quantity: List[int] = Form([], alias="quantity[]"),
@@ -236,7 +246,7 @@ def update_invoice(
         inv.alt_contact_phone = alt_phone
         inv.alt_contact_relation = alt_relationship
         inv.mobile_fee_override = (mobile_fee_override == "true")
-        inv.technician_id = technician_id  # <-- NUEVO: actualizar técnico
+        inv.technician_id = technician_id
         
         db.query(InvoiceItem).filter(InvoiceItem.invoice_id == target_id).delete()
         db.commit()
@@ -764,7 +774,6 @@ def invoices_workshop_view(
         elif status_filter.upper() == "VOID":
             base_query = base_query.filter(Invoice.status.ilike("void"))
      
-    # ORDEN ASCENDENTE POR HORA DE LA CITA
     invoices = base_query.order_by(asc(Invoice.estimated_appointment_time)).all()
     
     invoices_data = []
@@ -912,3 +921,60 @@ async def create_invoice_activity(
             status_code=500,
             content={"success": False, "error": str(e)}
         )
+
+
+# ============================================================
+# 10. SEND INVOICE BY EMAIL (POST)
+# ============================================================
+@router.post("/email/{invoice_id}")
+async def send_invoice_email(
+    invoice_id: int,
+    request: Request,
+    email_to: str = Form(...),
+    db: Session = Depends(get_db)
+):
+    try:
+        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+
+        customer = db.query(Customer).filter(Customer.id == invoice.customer_id).first()
+        invoice_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+        company = db.query(Company).first()
+
+        from_email = company.main_email if company and company.main_email else os.getenv("EMAIL_USER")
+
+        html = templates.get_template("invoices/invoice_pdf.html").render(
+    {
+        "invoice": invoice,
+        "customer": customer,
+        "invoice_items": invoice_items,
+        "company": company,
+        "now": datetime.now(),
+    }
+)
+        pdf_buffer = BytesIO()
+        pisa.CreatePDF(BytesIO(html.encode("utf-8")), pdf_buffer)
+        pdf_buffer.seek(0)
+
+        msg = MIMEMultipart()
+        msg["From"] = from_email
+        msg["To"] = email_to
+        msg["Subject"] = f"Invoice #{invoice.id} - PowerCore"
+        msg.attach(MIMEText(f"Please find attached invoice #{invoice.id}.", "plain"))
+
+        part = MIMEBase("application", "octet-stream")
+        part.set_payload(pdf_buffer.read())
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", f"attachment; filename=invoice_{invoice.id}.pdf")
+        msg.attach(part)
+
+        with smtplib.SMTP(os.getenv("EMAIL_HOST"), int(os.getenv("EMAIL_PORT"))) as server:
+            server.starttls()
+            server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASSWORD"))
+            server.send_message(msg)
+
+        return RedirectResponse(url=f"/invoices/view/{invoice_id}", status_code=303)
+
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Email sending failed: {str(e)}")
