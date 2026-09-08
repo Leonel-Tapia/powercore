@@ -939,7 +939,7 @@ async def send_invoice_email(
         invoice_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
         company = db.query(Company).first()
 
-        from_email = company.main_email if company and company.main_email else os.getenv("SENDGRID_FROM_EMAIL")
+        from_email = os.getenv("SENDGRID_FROM_EMAIL")
 
         html = templates.get_template("invoices/invoice_pdf.html").render(
             {
