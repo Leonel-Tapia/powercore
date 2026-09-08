@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (added email sending)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (SendGrid email)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
@@ -19,13 +19,10 @@ from app.models.inventory.time_model import TimeCatalog
 from app.models.company.company import Company
 from app.models.company.user import User
 
-# ===== NUEVAS IMPORTACIONES PARA EMAIL =====
-import smtplib
+# ===== NUEVAS IMPORTACIONES PARA SENDGRID =====
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.base import MIMEBase
-from email.mime.text import MIMEText
-from email import encoders
+import base64
+import requests
 from io import BytesIO
 from xhtml2pdf import pisa
 # ============================================
@@ -924,7 +921,7 @@ async def create_invoice_activity(
 
 
 # ============================================================
-# 10. SEND INVOICE BY EMAIL (POST)
+# 10. SEND INVOICE BY EMAIL (SendGrid API)
 # ============================================================
 @router.post("/email/{invoice_id}")
 async def send_invoice_email(
@@ -942,37 +939,43 @@ async def send_invoice_email(
         invoice_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
         company = db.query(Company).first()
 
-        from_email = company.main_email if company and company.main_email else os.getenv("EMAIL_USER")
+        from_email = company.main_email if company and company.main_email else os.getenv("SENDGRID_FROM_EMAIL")
 
         html = templates.get_template("invoices/invoice_pdf.html").render(
-    {
-        "invoice": invoice,
-        "customer": customer,
-        "invoice_items": invoice_items,
-        "company": company,
-        "now": datetime.now(),
-    }
-)
+            {
+                "invoice": invoice,
+                "customer": customer,
+                "invoice_items": invoice_items,
+                "company": company,
+                "now": datetime.now(),
+            }
+        )
+
         pdf_buffer = BytesIO()
         pisa.CreatePDF(BytesIO(html.encode("utf-8")), pdf_buffer)
         pdf_buffer.seek(0)
 
-        msg = MIMEMultipart()
-        msg["From"] = from_email
-        msg["To"] = email_to
-        msg["Subject"] = f"Invoice #{invoice.id} - PowerCore"
-        msg.attach(MIMEText(f"Please find attached invoice #{invoice.id}.", "plain"))
+        url = "https://api.sendgrid.com/v3/mail/send"
+        headers = {
+            "Authorization": f"Bearer {os.getenv('SENDGRID_API_KEY')}",
+            "Content-Type": "application/json"
+        }
+        data = {
+            "personalizations": [{"to": [{"email": email_to}]}],
+            "from": {"email": from_email},
+            "subject": f"Invoice #{invoice.id} - PowerCore",
+            "content": [{"type": "text/plain", "value": f"Please find attached invoice #{invoice.id}."}],
+            "attachments": [{
+                "content": base64.b64encode(pdf_buffer.getvalue()).decode(),
+                "filename": f"invoice_{invoice.id}.pdf",
+                "type": "application/pdf",
+                "disposition": "attachment"
+            }]
+        }
 
-        part = MIMEBase("application", "octet-stream")
-        part.set_payload(pdf_buffer.read())
-        encoders.encode_base64(part)
-        part.add_header("Content-Disposition", f"attachment; filename=invoice_{invoice.id}.pdf")
-        msg.attach(part)
-
-        with smtplib.SMTP(os.getenv("EMAIL_HOST", "smtp.gmail.com"), int(os.getenv("EMAIL_PORT", 587))) as server:
-            server.starttls()
-            server.login(os.getenv("EMAIL_USER"), os.getenv("EMAIL_PASSWORD"))
-            server.send_message(msg)
+        response = requests.post(url, json=data, headers=headers)
+        if response.status_code != 202:
+            raise HTTPException(status_code=500, detail="SendGrid error: " + response.text)
 
         return RedirectResponse(url=f"/invoices/view/{invoice_id}", status_code=303)
 
