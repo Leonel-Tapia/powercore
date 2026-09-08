@@ -1,4 +1,4 @@
-# RUTA: app/main.py | ACTUALIZADO: 2026-07-27
+# RUTA: app/main.py | ACTUALIZADO: 2026-09-04
 # DESCRIPCIÓN: Punto de entrada principal de PowerCore - Registro de módulos
 
 from fastapi import FastAPI
@@ -57,6 +57,9 @@ from app.routers.zipcodes.zipcodes_router import router as zipcodes_router
 
 # INVOICES (NUEVO — NECESARIO PARA EL MODAL)
 from app.routers.invoices.invoices_router import router as invoices_router
+
+# TÉCNICO - Ruta del día
+from app.routers.invoices.technician_routes import router as technician_router
 
 
 app = FastAPI(title="PowerCore System")
@@ -133,6 +136,9 @@ app.include_router(estimates_router)
 
 # 7.3 Invoices System (NUEVO — ACTIVADO)
 app.include_router(invoices_router)
+
+# 7.4 Technician Dashboard
+app.include_router(technician_router)
 
 # 7.2 Zip Codes System
 app.include_router(zipcodes_router)

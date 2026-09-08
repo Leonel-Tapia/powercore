@@ -1,4 +1,4 @@
-<!-- Path: app>templates>estimates>estimates_add.html | Updated: 2026-08-05 -->
+<!-- Path: app>templates>estimates>estimates_add.html | Updated: 2026-08-06 (fixed field names) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -306,17 +306,20 @@
             <div class="d-flex justify-content-end align-items-center mb-2" style="gap: 10px;">
                 
                 <label class="small fw-bold text-muted">Labor:</label>
-                <input type="number" step="0.01" min="0" id="labor_cost" name="labor_cost" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
+                <!-- CAMBIADO: name="labor" en lugar de "labor_cost" -->
+                <input type="number" step="0.01" min="0" id="labor_cost" name="labor" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
                         value="{{ estimate.labor_cost if (estimate and estimate.labor_cost is not none) else (company.labor_cost if company else '79.99') }}" 
                         oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()">
 
                 <label class="small fw-bold text-muted">Mat:</label>
-                <input type="number" step="0.01" min="0" id="materials_cost" name="materials_cost" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
+                <!-- CAMBIADO: name="mat" en lugar de "materials_cost" -->
+                <input type="number" step="0.01" min="0" id="materials_cost" name="mat" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
                         value="{{ estimate.materials_cost if (estimate and estimate.materials_cost is not none) else (company.materials_cost if company else '19.99') }}" 
                         oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()">
 
                 <label class="small fw-bold text-muted">Misc:</label>
-                <input type="number" step="0.01" min="0" id="misc_cost" name="misc_cost" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
+                <!-- CAMBIADO: name="misc" en lugar de "misc_cost" -->
+                <input type="number" step="0.01" min="0" id="misc_cost" name="misc" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
                         value="{{ estimate.misc_cost if (estimate and estimate.misc_cost is not none) else (company.misc_cost if company else '0.00') }}" 
                         oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()">
             </div>

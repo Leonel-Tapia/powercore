@@ -1,8 +1,8 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-08-26
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-07 (sort by appointment time ascending, added technician assignment)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
 from sqlalchemy.orm import Session
-from sqlalchemy import func, or_, desc
+from sqlalchemy import func, or_, desc, asc
 from datetime import datetime, date
 from typing import List, Optional
 from decimal import Decimal
@@ -17,6 +17,7 @@ from app.models.customers.customer_model import Customer
 from app.models.inventory.year_model import Year
 from app.models.inventory.time_model import TimeCatalog
 from app.models.company.company import Company
+from app.models.company.user import User
 
 router = APIRouter(
     prefix="/invoices",
@@ -45,19 +46,24 @@ def view_invoice(
     times = db.query(TimeCatalog).order_by(TimeCatalog.time_value.asc()).all()
     company = db.query(Company).first()
 
-    # Obtener pagos del invoice
     payments = db.query(InvoicePayment).filter(
         InvoicePayment.invoice_id == invoice_id
     ).order_by(desc(InvoicePayment.payment_date)).all()
     
-    # Calcular total pagado
     total_paid = sum(p.amount for p in payments if p.payment_status in ["DEPOSITED", "PENDING"])
     balance_due = float(invoice.total or 0) - float(total_paid)
 
-    # Obtener actividades del invoice
     activities = db.query(InvoiceActivity).filter(
         InvoiceActivity.invoice_id == invoice_id
     ).order_by(desc(InvoiceActivity.created_at)).all()
+
+    technician_name = None
+    if invoice.technician_id:
+        technician = db.query(User).filter(User.id == invoice.technician_id).first()
+        technician_name = technician.full_name if technician else None
+
+    # Obtener lista de técnicos para el selector
+    technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
 
     return templates.TemplateResponse(
         request=request,
@@ -74,7 +80,9 @@ def view_invoice(
             "payments": payments,
             "total_paid": float(total_paid),
             "balance_due": balance_due,
-            "activities": activities
+            "activities": activities,
+            "technician_name": technician_name,
+            "technicians": technicians  # <-- NUEVO: lista de técnicos
         }
     )
 
@@ -197,6 +205,7 @@ def update_invoice(
     alt_phone: Optional[str] = Form(None),
     alt_relationship: Optional[str] = Form(None),
     mobile_fee_override: Optional[str] = Form(None),
+    technician_id: Optional[int] = Form(None),  # <-- NUEVO: ID del técnico asignado
     product_name: List[str] = Form([], alias="product_name[]"),
     description: List[str] = Form([], alias="description[]"),
     quantity: List[int] = Form([], alias="quantity[]"),
@@ -227,6 +236,7 @@ def update_invoice(
         inv.alt_contact_phone = alt_phone
         inv.alt_contact_relation = alt_relationship
         inv.mobile_fee_override = (mobile_fee_override == "true")
+        inv.technician_id = technician_id  # <-- NUEVO: actualizar técnico
         
         db.query(InvoiceItem).filter(InvoiceItem.invoice_id == target_id).delete()
         db.commit()
@@ -252,8 +262,7 @@ def update_invoice(
     
     db.commit()
     
-    # Redirigir a return_url si existe, si no a la vista del invoice
-    if return_url:
+    if return_url and return_url != "None":
         return RedirectResponse(url=return_url, status_code=303)
     else:
         return RedirectResponse(url=f"/invoices/view/{target_id}", status_code=303)
@@ -300,10 +309,6 @@ def get_invoice_history(
     customer_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Retorna el historial de facturas para un cliente específico.
-    Incluye: lista de invoices + totales desglosados por estado.
-    """
     invoices = db.query(Invoice).filter(
         Invoice.customer_id == customer_id
     ).order_by(Invoice.id.desc()).all()
@@ -314,7 +319,6 @@ def get_invoice_history(
     total_paid = 0.0
     
     for inv in invoices:
-        # Obtener el año desde la tabla years usando vehicle_year_id
         year_value = None
         if inv.vehicle_year_id:
             year_record = db.query(Year).filter(Year.id == inv.vehicle_year_id).first()
@@ -357,16 +361,13 @@ def get_invoice_history(
 
 
 # ============================================================
-# 6. GET INVOICE DETAILS (para Details button - opcional)
+# 6. GET INVOICE DETAILS
 # ============================================================
 @router.get("/details/{invoice_id}")
 def get_invoice_details(
     invoice_id: int,
     db: Session = Depends(get_db)
 ):
-    """
-    Retorna los items de una factura específica.
-    """
     items = db.query(InvoiceItem).filter(
         InvoiceItem.invoice_id == invoice_id
     ).all()
@@ -386,19 +387,13 @@ def get_invoice_details(
 # ============================================================
 # 7. SECCIÓN DE PAGOS - INVOICE PAYMENTS
 # ============================================================
-
-# ============================================================
-# 7.1 OBTENER TODOS LOS PAGOS DE UN INVOICE
-# ============================================================
 @router.get("/{invoice_id}/payments")
 async def get_invoice_payments(
     request: Request,
     invoice_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener todos los pagos de un invoice específico"""
     try:
-        # Verificar que el invoice existe
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if not invoice:
             return JSONResponse(
@@ -406,12 +401,10 @@ async def get_invoice_payments(
                 content={"success": False, "error": "Invoice no encontrado"}
             )
         
-        # Obtener pagos ordenados por fecha descendente
         payments = db.query(InvoicePayment).filter(
             InvoicePayment.invoice_id == invoice_id
         ).order_by(desc(InvoicePayment.payment_date)).all()
         
-        # Calcular total pagado
         total_paid = sum(p.amount for p in payments if p.payment_status in ["DEPOSITED", "PENDING"])
         
         return JSONResponse(
@@ -432,18 +425,13 @@ async def get_invoice_payments(
         )
 
 
-# ============================================================
-# 7.2 CREAR NUEVO PAGO
-# ============================================================
 @router.post("/{invoice_id}/payments")
 async def create_invoice_payment(
     request: Request,
     invoice_id: int,
     db: Session = Depends(get_db)
 ):
-    """Crear un nuevo pago para un invoice"""
     try:
-        # Verificar que el invoice existe
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if not invoice:
             return JSONResponse(
@@ -451,10 +439,8 @@ async def create_invoice_payment(
                 content={"success": False, "error": "Invoice no encontrado"}
             )
         
-        # Obtener datos del formulario
         form_data = await request.form()
         
-        # Validar campos obligatorios
         payment_type = form_data.get("payment_type")
         amount_str = form_data.get("amount")
         payment_date_str = form_data.get("payment_date")
@@ -498,13 +484,8 @@ async def create_invoice_payment(
                 content={"success": False, "error": "Fecha inválida (formato YYYY-MM-DD)"}
             )
         
-        # Obtener usuario de la sesión
         username = request.session.get("username") or request.session.get("user_name") or "system"
         
-        # ============================================================
-        # VALIDACIÓN: NO PERMITIR PAGO MAYOR AL BALANCE PENDIENTE
-        # ============================================================
-        # Calcular balance actual antes de crear el pago
         existing_payments = db.query(InvoicePayment).filter(
             InvoicePayment.invoice_id == invoice_id
         ).all()
@@ -512,15 +493,12 @@ async def create_invoice_payment(
         current_total_paid = sum(p.amount for p in existing_payments if p.payment_status in ["DEPOSITED", "PENDING"])
         balance_due = float(invoice.total or 0) - float(current_total_paid)
         
-        # Validar que el pago no supere el balance
         if float(amount) > balance_due:
             return JSONResponse(
                 status_code=400,
                 content={"success": False, "error": f"El monto del pago (${float(amount):.2f}) excede el balance pendiente (${balance_due:.2f})"}
             )
-        # ============================================================
         
-        # Crear el pago
         new_payment = InvoicePayment(
             invoice_id=invoice_id,
             payment_type=payment_type,
@@ -536,8 +514,6 @@ async def create_invoice_payment(
         db.commit()
         db.refresh(new_payment)
         
-        # Actualizar payment_status del invoice si es necesario
-        # Actualizar el total pagado y balance
         payments = db.query(InvoicePayment).filter(
             InvoicePayment.invoice_id == invoice_id
         ).all()
@@ -545,16 +521,15 @@ async def create_invoice_payment(
         total_paid = sum(p.amount for p in payments if p.payment_status in ["DEPOSITED", "PENDING"])
         balance_due = float(invoice.total or 0) - float(total_paid)
         
-        # Si el balance es 0, marcar como PAID
         if balance_due <= 0:
-            invoice.status = "PAID"              # ← Call Center ve PAID
-            invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+            invoice.status = "PAID"
+            invoice.payment_status = "PENDING"
         elif total_paid > 0:
-            invoice.status = "PARTIALLY_PAID"    # ← Call Center ve PARTIALLY_PAID
-            invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+            invoice.status = "PARTIALLY_PAID"
+            invoice.payment_status = "PENDING"
         else:
-            invoice.status = "PENDING"           # ← Call Center ve PENDING
-            invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+            invoice.status = "PENDING"
+            invoice.payment_status = "PENDING"
         
         db.commit()
         
@@ -575,18 +550,13 @@ async def create_invoice_payment(
         )
 
 
-# ============================================================
-# 7.3 ACTUALIZAR ESTADO DE UN PAGO
-# ============================================================
 @router.put("/payments/{payment_id}/status")
 async def update_payment_status(
     request: Request,
     payment_id: int,
     db: Session = Depends(get_db)
 ):
-    """Actualizar el estado de un pago (DEPOSITED, BOUNCED, REJECTED, etc.)"""
     try:
-        # Buscar el pago
         payment = db.query(InvoicePayment).filter(InvoicePayment.id == payment_id).first()
         if not payment:
             return JSONResponse(
@@ -594,7 +564,6 @@ async def update_payment_status(
                 content={"success": False, "error": "Pago no encontrado"}
             )
         
-        # Obtener datos del formulario
         form_data = await request.form()
         new_status = form_data.get("payment_status")
         
@@ -604,7 +573,6 @@ async def update_payment_status(
                 content={"success": False, "error": "El estado es obligatorio"}
             )
         
-        # Validar estados permitidos
         allowed_statuses = ["DEPOSITED", "BOUNCED", "CANCELLED", "VOID", "REJECTED", "FAILED", "REFUNDED"]
         if new_status not in allowed_statuses:
             return JSONResponse(
@@ -612,10 +580,8 @@ async def update_payment_status(
                 content={"success": False, "error": f"Estado inválido. Permitidos: {', '.join(allowed_statuses)}"}
             )
         
-        # Obtener usuario de la sesión
         username = request.session.get("username") or request.session.get("user_name") or "system"
         
-        # Actualizar según el estado
         if new_status == "DEPOSITED":
             payment.payment_status = "DEPOSITED"
             payment.deposited_at = datetime.now()
@@ -643,23 +609,18 @@ async def update_payment_status(
             
         elif new_status == "CANCELLED":
             payment.payment_status = "CANCELLED"
-            
         elif new_status == "VOID":
             payment.payment_status = "VOID"
-            
         elif new_status == "FAILED":
             payment.payment_status = "FAILED"
-            
         elif new_status == "REFUNDED":
             payment.payment_status = "REFUNDED"
         
-        # Actualizar timestamp
         payment.updated_at = datetime.now()
         
         db.commit()
         db.refresh(payment)
         
-        # Actualizar el invoice
         invoice = db.query(Invoice).filter(Invoice.id == payment.invoice_id).first()
         if invoice:
             payments = db.query(InvoicePayment).filter(
@@ -670,14 +631,14 @@ async def update_payment_status(
             balance_due = float(invoice.total or 0) - float(total_paid)
             
             if balance_due <= 0:
-                invoice.status = "PAID"              # ← Call Center ve PAID
-                invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+                invoice.status = "PAID"
+                invoice.payment_status = "PENDING"
             elif total_paid > 0:
-                invoice.status = "PARTIALLY_PAID"    # ← Call Center ve PARTIALLY_PAID
-                invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+                invoice.status = "PARTIALLY_PAID"
+                invoice.payment_status = "PENDING"
             else:
-                invoice.status = "PENDING"           # ← Call Center ve PENDING
-                invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+                invoice.status = "PENDING"
+                invoice.payment_status = "PENDING"
             
             db.commit()
         
@@ -698,16 +659,12 @@ async def update_payment_status(
         )
 
 
-# ============================================================
-# 7.4 ELIMINAR UN PAGO (OPCIONAL)
-# ============================================================
 @router.delete("/payments/{payment_id}")
 async def delete_payment(
     request: Request,
     payment_id: int,
     db: Session = Depends(get_db)
 ):
-    """Eliminar un pago (solo si está PENDING o CANCELLED)"""
     try:
         payment = db.query(InvoicePayment).filter(InvoicePayment.id == payment_id).first()
         if not payment:
@@ -716,7 +673,6 @@ async def delete_payment(
                 content={"success": False, "error": "Pago no encontrado"}
             )
         
-        # Solo permitir eliminar pagos PENDING o CANCELLED
         if payment.payment_status not in ["PENDING", "CANCELLED"]:
             return JSONResponse(
                 status_code=400,
@@ -728,7 +684,6 @@ async def delete_payment(
         db.delete(payment)
         db.commit()
         
-        # Actualizar el invoice
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if invoice:
             payments = db.query(InvoicePayment).filter(
@@ -739,14 +694,14 @@ async def delete_payment(
             balance_due = float(invoice.total or 0) - float(total_paid)
             
             if balance_due <= 0:
-                invoice.status = "PAID"              # ← Call Center ve PAID
-                invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+                invoice.status = "PAID"
+                invoice.payment_status = "PENDING"
             elif total_paid > 0:
-                invoice.status = "PARTIALLY_PAID"    # ← Call Center ve PARTIALLY_PAID
-                invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+                invoice.status = "PARTIALLY_PAID"
+                invoice.payment_status = "PENDING"
             else:
-                invoice.status = "PENDING"           # ← Call Center ve PENDING
-                invoice.payment_status = "PENDING"   # ← Contabilidad ve PENDING
+                invoice.status = "PENDING"
+                invoice.payment_status = "PENDING"
             
             db.commit()
         
@@ -767,7 +722,7 @@ async def delete_payment(
 
 
 # ============================================================
-# 8. INVOICES WORKSHOP VIEW
+# 8. INVOICES WORKSHOP VIEW (with appointment time, sorted by time)
 # ============================================================
 @router.get("/workshop", response_class=HTMLResponse)
 def invoices_workshop_view(
@@ -776,9 +731,6 @@ def invoices_workshop_view(
     status_filter: Optional[str] = "all",
     db: Session = Depends(get_db)
 ):
-    """Vista de Invoices para Workshop / Taller"""
-    
-    # Determinar fecha
     if selected_date:
         try:
             target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
@@ -790,22 +742,18 @@ def invoices_workshop_view(
     day_name = target_date.strftime("%A")
     return_url = f"/invoices/workshop?selected_date={selected_date or target_date.strftime('%Y-%m-%d')}&status_filter={status_filter or 'all'}"
     
-    # Query base
     base_query = db.query(Invoice).filter(
         Invoice.estimated_appointment_date == target_date
     )
     
-    # Obtener todos para contar
     all_invoices = base_query.all()
     
-    # Contar por estado
     total_invoices = len(all_invoices)
     pending_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "PENDING")
     partially_paid_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "PARTIALLY_PAID")
     paid_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "PAID")
     void_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "VOID")
     
-    # Aplicar filtro de estado
     if status_filter and status_filter != "all":
         if status_filter.upper() == "PENDING":
             base_query = base_query.filter(Invoice.status == "PENDING")
@@ -816,29 +764,26 @@ def invoices_workshop_view(
         elif status_filter.upper() == "VOID":
             base_query = base_query.filter(Invoice.status.ilike("void"))
      
-    invoices = base_query.order_by(Invoice.id.desc()).all()
+    # ORDEN ASCENDENTE POR HORA DE LA CITA
+    invoices = base_query.order_by(asc(Invoice.estimated_appointment_time)).all()
     
-    # Preparar datos
     invoices_data = []
     for inv in invoices:
-        # Obtener customer
         customer = db.query(Customer).filter(Customer.id == inv.customer_id).first() if inv.customer_id else None
         
-        # Obtener año del vehículo
         vehicle_year = None
         if inv.vehicle_year_id:
             year_record = db.query(Year).filter(Year.id == inv.vehicle_year_id).first()
             if year_record:
                 vehicle_year = year_record.year
         
-        # Calcular total pagado
         payments = db.query(InvoicePayment).filter(
             InvoicePayment.invoice_id == inv.id
         ).all()
         total_paid = sum(p.amount for p in payments if p.payment_status in ["DEPOSITED", "PENDING"])
         balance_due = float(inv.total or 0) - float(total_paid)
         
-        invoices_data.append((inv, customer, vehicle_year, total_paid, balance_due))
+        invoices_data.append((inv, customer, vehicle_year, total_paid, balance_due, inv.estimated_appointment_time))
     
     return templates.TemplateResponse(
         request=request,
@@ -861,15 +806,10 @@ def invoices_workshop_view(
 # ============================================================
 # 9. SECCIÓN DE ACTIVIDADES (CONCEPTS & ACTIVITIES)
 # ============================================================
-
-# ============================================================
-# 9.1 OBTENER TODOS LOS CONCEPTOS ACTIVOS
-# ============================================================
 @router.get("/concepts")
 async def get_concepts(
     db: Session = Depends(get_db)
 ):
-    """Obtener todos los conceptos activos"""
     try:
         concepts = db.query(Concept).filter(
             Concept.is_active == True
@@ -889,15 +829,11 @@ async def get_concepts(
         )
 
 
-# ============================================================
-# 9.2 OBTENER ACTIVIDADES DE UN INVOICE
-# ============================================================
 @router.get("/{invoice_id}/activities")
 async def get_invoice_activities(
     invoice_id: int,
     db: Session = Depends(get_db)
 ):
-    """Obtener todas las actividades de un invoice"""
     try:
         activities = db.query(InvoiceActivity).filter(
             InvoiceActivity.invoice_id == invoice_id
@@ -917,18 +853,13 @@ async def get_invoice_activities(
         )
 
 
-# ============================================================
-# 9.3 AGREGAR NUEVA ACTIVIDAD A UN INVOICE
-# ============================================================
 @router.post("/{invoice_id}/activities")
 async def create_invoice_activity(
     request: Request,
     invoice_id: int,
     db: Session = Depends(get_db)
 ):
-    """Agregar una nueva actividad a un invoice"""
     try:
-        # Verificar que el invoice existe
         invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
         if not invoice:
             return JSONResponse(
@@ -936,7 +867,6 @@ async def create_invoice_activity(
                 content={"success": False, "error": "Invoice no encontrado"}
             )
         
-        # Obtener datos del formulario
         form_data = await request.form()
         concept_id = form_data.get("concept_id")
         description = form_data.get("description", "").strip() or None
@@ -947,7 +877,6 @@ async def create_invoice_activity(
                 content={"success": False, "error": "El concepto es obligatorio"}
             )
         
-        # Verificar que el concepto existe
         concept = db.query(Concept).filter(Concept.id == concept_id).first()
         if not concept:
             return JSONResponse(
@@ -955,10 +884,8 @@ async def create_invoice_activity(
                 content={"success": False, "error": "Concepto no encontrado"}
             )
         
-        # Obtener usuario de la sesión
         username = request.session.get("username") or request.session.get("user_name") or "system"
         
-        # Crear la actividad
         new_activity = InvoiceActivity(
             invoice_id=invoice_id,
             concept_id=concept_id,

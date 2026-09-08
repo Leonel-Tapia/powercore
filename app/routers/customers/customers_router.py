@@ -1,4 +1,4 @@
-# PATH: app/routers/customers/customers_router.py | UPDATED: 2026-08-03
+# PATH: app/routers/customers/customers_router.py | UPDATED: 2026-08-06
 import re
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
@@ -18,14 +18,9 @@ router = APIRouter(
 )
 
 
-# ============================================================
-# ⭐ 0. LIVE SEARCH JSON
-# ============================================================
 @router.get("/search-json")
 def customers_search_json(q: str = "", db: Session = Depends(get_db)):
-
     q_clean = re.sub(r'\D', '', q)
-
     query = (
         db.query(Customer)
         .filter(
@@ -39,7 +34,6 @@ def customers_search_json(q: str = "", db: Session = Depends(get_db)):
         .limit(20)
         .all()
     )
-
     return [
         {
             "id": c.id,
@@ -52,9 +46,6 @@ def customers_search_json(q: str = "", db: Session = Depends(get_db)):
     ]
 
 
-# ============================================================
-# 1. LIST VIEW
-# ============================================================
 @router.get("/list", response_class=HTMLResponse)
 def customers_list(
     request: Request,
@@ -64,14 +55,11 @@ def customers_list(
 ):
     limit = 15
     offset = (page - 1) * limit
-
     query = db.query(Customer)
-
     if search:
         search_term = f"%{search}%"
         search_clean = re.sub(r'\D', '', search)
         search_digits = f"%{search_clean}%" if search_clean else "%"
-
         query = query.filter(
             or_(
                 Customer.name.ilike(search_term),
@@ -79,14 +67,10 @@ def customers_list(
                 Customer.phone_numeric.ilike(search_digits)
             )
         )
-
     query = query.order_by(Customer.name.asc())
-
     total = query.count()
     total_pages = (total + limit - 1) // limit
-
     customers = query.offset(offset).limit(limit).all()
-
     return templates.TemplateResponse(
         request=request,
         name="customers/customers_list.html",
@@ -99,9 +83,6 @@ def customers_list(
     )
 
 
-# ============================================================
-# 2. ADD FORM VIEW
-# ============================================================
 @router.get("/add", response_class=HTMLResponse)
 def customers_add_form(
     request: Request,
@@ -120,9 +101,6 @@ def customers_add_form(
     )
 
 
-# ============================================================
-# 3. ADD CUSTOMER (POST)
-# ============================================================
 @router.post("/add")
 def customers_add(
     name: str = Form(...),
@@ -159,21 +137,18 @@ def customers_add(
     tax_exempt: str = Form("false"),
     tax_exempt_license: str = Form(None),
     origin: str = Form("manager"),
+    action: str = Form("save"),
     db: Session = Depends(get_db)
 ):
-
     allow_sms_bool = allow_sms.lower() == "true"
     is_tax_exempt_bool = is_tax_exempt.lower() == "true"
     tax_exempt_bool = tax_exempt.lower() == "true"
-
     birthday_date = datetime.strptime(birthday, "%Y-%m-%d").date() if birthday else None
     last_purchase_date_date = datetime.strptime(last_purchase_date, "%Y-%m-%d").date() if last_purchase_date else None
-
     try:
         credit_limit_decimal = Decimal(credit_limit)
     except:
         credit_limit_decimal = Decimal("0.00")
-
     customer_rating_int = int(customer_rating) if customer_rating and customer_rating.isdigit() else None
 
     new_customer = Customer(
@@ -223,8 +198,13 @@ def customers_add(
         db.rollback()
         print(f"[POWERCORE ERROR] {str(e)}")
 
-    # Redirección dinámica basada en el origen
-    if origin == "call_center":
+    # ✅ Redirección corregida: usa /estimates/new/ en lugar de /estimates/add/
+    if action == "estimate":
+        return RedirectResponse(
+            url=f"/estimates/new/{new_customer.id}?origin={origin}",
+            status_code=303
+        )
+    elif origin == "call_center":
         return RedirectResponse(url="/call_center/search", status_code=303)
-    
-    return RedirectResponse(url="/customers/list", status_code=303)
+    else:
+        return RedirectResponse(url="/customers/list", status_code=303)

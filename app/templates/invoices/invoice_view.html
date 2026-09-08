@@ -1,4 +1,4 @@
-<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-08-26 | Time: 13:30 -->
+<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-07 (technician selector in top bar) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -72,7 +72,7 @@
 
         .info-grid {
             display: grid;
-            grid-template-columns: 1fr 1fr 1fr 1fr;
+            grid-template-columns: repeat(4, 1fr);
             gap: 8px;
         }
 
@@ -176,7 +176,6 @@
         .payment-summary-box .amount { font-size: 1.1rem; font-weight: bold; color: #28a745; }
         .payment-summary-box .amount.danger { color: #dc3545; }
         
-        /* Estilos compactos para formulario de pagos - misma linea */
         .payment-form-label {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -219,9 +218,6 @@
             padding: 4px 8px;
         }
 
-        /* ============================================================ */
-        /* ESTILOS PARA PRINT PREVIEW */
-        /* ============================================================ */
         .print-preview-banner {
             background: #0d6e6e;
             color: white;
@@ -244,9 +240,6 @@
             display: block !important;
         }
 
-        /* ============================================================ */
-        /* ESTILOS PARA ACTIVITY LOG */
-        /* ============================================================ */
         .activity-badge {
             font-size: 0.65rem;
             padding: 2px 6px;
@@ -282,15 +275,12 @@
         }
 
         @media print {
-            /* Ocultar elementos no deseados */
             .no-print { display: none !important; }
             #footer-fixed { display: none !important; }
             .top-header .text-end { display: none !important; }
             .btn, .btn-sm, .btn-outline-secondary, .btn-danger, .btn-info { display: none !important; }
             .print-preview-banner { display: none !important; }
             a[href]::after { content: none !important; }
-            
-            /* Estilos de impresión */
             body { background: white !important; margin: 0; padding: 10px; font-size: 10pt; }
             .container-fluid { width: 100%; padding: 0; }
             .section-box { border: 1px solid #ddd !important; box-shadow: none !important; }
@@ -303,8 +293,6 @@
             .badge-status-void { background-color: #dc3545 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .info-box { border-left: 3px solid #0d6e6e !important; background: #f8f9fa !important; }
             .payment-summary-box { background: #e8f5e9 !important; border-left: 3px solid #28a745 !important; }
-            
-            /* Asegurar que los campos input se vean como texto */
             input, select, textarea { border: none !important; background: transparent !important; }
         }
     </style>
@@ -332,7 +320,7 @@
     <!-- HEADER -->
     <div class="top-header d-flex justify-content-between align-items-center">
         <div>
-            <h4 class="mb-0 d-flex align-items-center" style="gap: 15px;">
+            <h4 class="mb-0 d-flex align-items-center" style="gap: 15px; flex-wrap: wrap;">
                 <span>INVOICE # <span id="invoice-id">{{ invoice.id }}</span></span>
                 <span class="badge {% if invoice.status == 'PAID' %}badge-status-paid{% elif invoice.status == 'VOID' %}badge-status-void{% else %}badge-status-pending{% endif %}">
                     Status: {{ invoice.status or 'PENDING' }}
@@ -345,6 +333,15 @@
             </h4>
             <small><strong>Created By:</strong> {{ invoice.created_by or request.session.get('user_name', 'admin') }}</small>
             <small class="ms-3"><strong>Date:</strong> {{ invoice.created_at.strftime('%Y-%m-%d %H:%M') if invoice.created_at else 'N/A' }}</small>
+            <small class="ms-3"><strong>Assigned To:</strong> 
+                {% if invoice.technician_id %}
+                    {% for tech in technicians %}
+                        {% if tech.id == invoice.technician_id %}{{ tech.full_name or tech.username }}{% endif %}
+                    {% endfor %}
+                {% else %}
+                    Unassigned
+                {% endif %}
+            </small>
         </div>
 
         <div class="text-end d-flex align-items-center" style="gap: 15px;">
@@ -352,10 +349,13 @@
         </div>
     </div>
 
+    <!-- FORMULARIO PRINCIPAL -->
     <form id="invoice-form" action="/invoices/update/{{ invoice.id }}" method="POST">
         <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
         <input type="hidden" name="customer_id" value="{{ customer.id if customer else invoice.customer_id }}">
-        <input type="hidden" name="return_url" value="{{ return_url }}">
+        {% if return_url and return_url != "None" %}
+            <input type="hidden" name="return_url" value="{{ return_url }}">
+        {% endif %}
         <input type="hidden" name="selected_date" value="{{ selected_date }}">
         <input type="hidden" name="subtotal" id="hidden_subtotal" value="0.00">
         <input type="hidden" name="tax_total" id="hidden_tax_total" value="0.00">
@@ -363,6 +363,24 @@
         <input type="hidden" name="alt_full_name" id="alt_full_name" value="{{ invoice.alt_contact_name or '' }}">
         <input type="hidden" name="alt_phone" id="alt_phone" value="{{ invoice.alt_contact_phone or '' }}">
         <input type="hidden" name="alt_relationship" id="alt_relationship" value="{{ invoice.alt_contact_relation or '' }}">
+
+        <!-- BARRA DE SELECCIÓN DE TÉCNICO (dentro del formulario) -->
+        <div class="row g-2 mb-2">
+            <div class="col-md-6 offset-md-6">
+                <div class="d-flex align-items-center justify-content-end" style="gap: 10px; background: #f0f8ff; padding: 6px 12px; border-radius: 4px; border: 1px solid #0d6e6e;">
+                    <strong style="font-size:0.8rem;">Assign Technician:</strong>
+                    <select name="technician_id" class="form-select form-select-sm" style="width:auto; min-width:150px; font-size:0.8rem; height:30px;">
+                        <option value="">Unassigned</option>
+                        {% for tech in technicians %}
+                            <option value="{{ tech.id }}" {% if invoice.technician_id == tech.id %}selected{% endif %}>
+                                {{ tech.full_name or tech.username }}
+                            </option>
+                        {% endfor %}
+                    </select>
+                    <small class="text-muted" style="font-size:0.65rem;">(select and Update)</small>
+                </div>
+            </div>
+        </div>
 
         <!-- SECCIÓN SUPERIOR: DATOS GENERALES -->
         <div class="section-box">
@@ -493,6 +511,7 @@
                         </div>
                     </div>
                 </div>
+
             </div>
         </div>
 
@@ -547,7 +566,6 @@
                 </div>
             </div>
 
-            <!-- Resumen de pagos - formato compacto en una línea -->
             <div class="row mb-2">
                 <div class="col-md-12">
                     <div class="d-flex flex-wrap align-items-center" style="gap: 25px; background: #f8f9fa; padding: 6px 12px; border-radius: 4px;">
@@ -575,7 +593,6 @@
                 </div>
             </div>
 
-            <!-- Formulario para agregar pago - MISMA LINEA -->
             <div class="payment-form-row" style="background: #f8f9fa; border-radius: 4px; border: 1px dashed #0d6e6e;">
                 <div class="payment-form-group">
                     <span class="payment-form-label">Type:</span>
@@ -610,7 +627,6 @@
                 </div>
             </div>
 
-            <!-- Tabla histórica de pagos -->
             <div style="max-height: 250px; overflow-y: auto; margin-top: 4px;">
                 <table class="table table-sm table-bordered payment-table" style="font-size:0.75rem;">
                     <thead class="table-light" style="position: sticky; top: 0; z-index: 10;">
@@ -699,11 +715,9 @@
 
             <div class="d-flex justify-content-between align-items-center" style="gap: 15px;">
                 <div class="d-flex align-items-center" style="gap: 8px;">
-                    <!-- BOTÓN PRINT - abre vista previa -->
                     <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openPrintPreview()">
                         🖨 Print
                     </button>
-                    <!-- BOTÓN ACTIVITY LOG -->
                     <button type="button" class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openActivityModal()">
                         📋 Activity
                     </button>
@@ -878,12 +892,11 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- MODAL: ACTIVITY LOG (VERSIÓN MANUAL - CORREGIDA) -->
+<!-- MODAL: ACTIVITY LOG -->
 <!-- ============================================================ -->
 <div id="activityModal" class="modal" style="display:none;">
     <div class="modal-content" style="width: 800px; max-width: 95%; background: white; border-radius: 8px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);">
         
-        <!-- HEADER -->
         <div style="background:#0d6e6e; color:white; padding:12px 20px; border-radius:8px 8px 0 0; display:flex; justify-content:space-between; align-items:center;">
             <h5 style="margin:0; font-size:1rem;">
                 <span style="margin-right:8px;">📋</span> Activity Log - Invoice #{{ invoice.id }}
@@ -891,9 +904,7 @@
             <button type="button" onclick="closeActivityModal()" style="background:transparent; border:none; color:white; font-size:1.5rem; cursor:pointer; line-height:1;">×</button>
         </div>
 
-        <!-- BODY -->
         <div style="padding:15px 20px; max-height: 60vh; overflow-y: auto;">
-            <!-- Customer info -->
             <div style="margin-bottom:10px; font-size:0.8rem; color:#6c757d;">
                 <strong>Customer:</strong> {{ customer.name if customer else 'Unknown' }}
                 {% if customer %}
@@ -901,7 +912,6 @@
                 {% endif %}
             </div>
 
-            <!-- Formulario para agregar actividad -->
             <div style="display:flex; flex-wrap:wrap; gap:8px; padding:12px; background:#f8f9fa; border-radius:4px; border:1px solid #dee2e6; margin-bottom:10px;">
                 <div style="flex:2; min-width:180px;">
                     <label style="font-size:0.7rem; font-weight:bold; color:#6c757d; display:block; margin-bottom:2px;">Concept</label>
@@ -920,13 +930,11 @@
                 </div>
             </div>
 
-            <!-- Botones rápidos de conceptos -->
             <div style="margin-bottom:10px;">
                 <span style="font-size:0.75rem; font-weight:bold; color:#6c757d; margin-right:8px;">Quick Select:</span>
                 <div id="quickConceptButtons" style="display:flex; flex-wrap:wrap; gap:4px;"></div>
             </div>
 
-            <!-- Tabla de actividades -->
             <div style="max-height: 250px; overflow-y: auto; border:1px solid #dee2e6; border-radius:4px;">
                 <table style="width:100%; font-size:0.7rem; border-collapse:collapse;">
                     <thead style="background:#f8f9fa; position:sticky; top:0; z-index:10;">
@@ -961,7 +969,6 @@
             </div>
         </div>
 
-        <!-- FOOTER -->
         <div style="padding:10px 20px; border-top:1px solid #dee2e6; text-align:right; border-radius:0 0 8px 8px;">
             <button type="button" onclick="closeActivityModal()" style="padding:4px 16px; background:#6c757d; color:white; border:none; border-radius:4px; font-size:0.8rem; cursor:pointer;">Close</button>
         </div>
@@ -1145,7 +1152,6 @@ window.addEventListener('load', function() {
         setTimeout(() => triggerModelLoad(currentMake), 300);
     }
     
-    // Cargar conceptos para Activity Modal
     loadConcepts();
 });
 
@@ -1410,19 +1416,11 @@ function closeVoidModal() {
     document.getElementById("voidInvoiceModal").style.display = "none";
 }
 
-// ============================================================
-// FUNCIÓN PARA OPEN PRINT PREVIEW
-// ============================================================
 function openPrintPreview() {
     const invoiceId = '{{ invoice.id }}';
     window.open('/invoices/view/' + invoiceId + '?print=true', '_blank', 'width=1024,height=900,scrollbars=yes');
 }
 
-// ============================================================
-// FUNCIONES PARA ACTIVITY LOG (VERSIÓN MANUAL - CORREGIDA)
-// ============================================================
-
-// Abrir modal (igual que openAltCustomerModal)
 function openActivityModal() {
     loadConcepts();
     document.getElementById('activity_concept_id').value = '';
@@ -1431,12 +1429,10 @@ function openActivityModal() {
     document.getElementById('activityModal').style.display = 'flex';
 }
 
-// Cerrar modal (igual que closeAltCustomerModal)
 function closeActivityModal() {
     document.getElementById('activityModal').style.display = 'none';
 }
 
-// Cargar conceptos desde el backend
 async function loadConcepts() {
     try {
         const response = await fetch('/invoices/concepts');
@@ -1473,7 +1469,6 @@ async function loadConcepts() {
     }
 }
 
-// Agregar actividad
 async function addActivity() {
     const conceptId = document.getElementById('activity_concept_id').value;
     const description = document.getElementById('activity_description').value;

@@ -1,4 +1,4 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-08-25 -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-07 (data attributes + event listeners) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -111,6 +111,7 @@
                             <tr>
                                 <th class="py-2 text-nowrap">#</th>
                                 <th class="py-2 text-nowrap">Date</th>
+                                <th class="py-2 text-nowrap">Time</th>
                                 <th class="py-2">Customer</th>
                                 <th class="py-2">Vehicle</th>
                                 <th class="py-2 text-nowrap">Total</th>
@@ -123,7 +124,7 @@
                         </thead>
                         <tbody>
                             {% if invoices_data %}
-                                {% for invoice, customer, vehicle_year, total_paid, balance_due in invoices_data %}
+                                {% for invoice, customer, vehicle_year, total_paid, balance_due, appt_time in invoices_data %}
                                 {% set status = invoice.status | default('PENDING') %}
                                 {% set is_void = status | upper == 'VOID' %}
                                 <tr class="{% if is_void %}table-danger{% endif %}">
@@ -138,6 +139,9 @@
                                         {% else %}
                                             {{ invoice.date_request or 'N/A' }}
                                         {% endif %}
+                                    </td>
+                                    <td class="py-1 text-nowrap">
+                                        {{ appt_time.strftime('%I:%M %p') if appt_time else '—' }}
                                     </td>
                                     <td class="py-1">
                                         {% if customer %}
@@ -182,23 +186,25 @@
                                                class="btn btn-sm btn-outline-primary py-0 px-2" title="View">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <!-- Pay - solo si no está PAID o VOID -->
+                                            <!-- Pay -->
                                             {% if not is_void and status | upper != 'PAID' %}
-                                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" 
-                                                        nclick='openPaymentModal("{{ invoice.id }}", "{{ customer.name if customer else '' }}", {{ invoice.total or 0 }})' title="Pay"></button>
-                                                  <i class="fas fa-dollar-sign"></i>
+                                                <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 btn-pay" 
+                                                        data-invoice-id="{{ invoice.id }}"
+                                                        data-customer-name="{{ customer.name if customer else '' }}"
+                                                        data-total="{{ invoice.total }}">
+                                                    <i class="fas fa-dollar-sign"></i>
                                                 </button>
                                             {% endif %}
-                                            <!-- Void - solo si no está VOID -->
+                                            <!-- Void -->
                                             {% if not is_void %}
-                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2" 
-                                                        onclick="openVoidModal('{{ invoice.id }}')" title="Void">
+                                                <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 btn-void" 
+                                                        data-invoice-id="{{ invoice.id }}">
                                                     <i class="fas fa-ban"></i>
                                                 </button>
                                             {% endif %}
                                             <!-- Print -->
-                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" 
-                                                    onclick="printInvoice('{{ invoice.id }}')" title="Print">
+                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 btn-print" 
+                                                    data-invoice-id="{{ invoice.id }}">
                                                 <i class="fas fa-print"></i>
                                             </button>
                                         </div>
@@ -207,7 +213,7 @@
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="10" class="text-center py-3 text-muted">
+                                    <td colspan="11" class="text-center py-3 text-muted">
                                         <i class="fas fa-info-circle me-1"></i> No invoices found for this date and filter.
                                     </td>
                                 </tr>
@@ -366,11 +372,9 @@
             document.getElementById('payment_customer_name').textContent = customerName || 'Unknown';
             document.getElementById('payment_invoice_total').textContent = '$' + parseFloat(invoiceTotal).toFixed(2);
             
-            // Set today's date
             const today = new Date().toISOString().split('T')[0];
             document.getElementById('payment_date').value = today;
             
-            // Clear previous values
             document.getElementById('payment_amount').value = '';
             document.getElementById('payment_reference').value = '';
             document.getElementById('payment_notes').value = '';
@@ -396,6 +400,37 @@
         function printInvoice(invoiceId) {
             window.open('/invoices/view/' + invoiceId + '?print=true', '_blank');
         }
+
+        // ============================================================
+        // EVENT LISTENERS PARA BOTONES (data attributes)
+        // ============================================================
+        document.addEventListener('DOMContentLoaded', function() {
+            // Botones Pay
+            document.querySelectorAll('.btn-pay').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var invoiceId = this.getAttribute('data-invoice-id');
+                    var customerName = this.getAttribute('data-customer-name');
+                    var total = this.getAttribute('data-total');
+                    openPaymentModal(invoiceId, customerName, total);
+                });
+            });
+
+            // Botones Void
+            document.querySelectorAll('.btn-void').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var invoiceId = this.getAttribute('data-invoice-id');
+                    openVoidModal(invoiceId);
+                });
+            });
+
+            // Botones Print
+            document.querySelectorAll('.btn-print').forEach(function(btn) {
+                btn.addEventListener('click', function() {
+                    var invoiceId = this.getAttribute('data-invoice-id');
+                    printInvoice(invoiceId);
+                });
+            });
+        });
     </script>
 
     <!-- ============================================================ -->
@@ -439,7 +474,6 @@
             const invoiceId = document.getElementById('void_invoice_id').value;
             const reason = document.getElementById('void_reason').value;
             
-            // Obtener return_url actual
             const returnUrl = encodeURIComponent(window.location.pathname + window.location.search);
             
             try {
@@ -455,7 +489,6 @@
                 });
                 
                 if (response.status === 303 || response.status === 302) {
-                    // Redirección exitosa
                     const redirectUrl = response.headers.get('location');
                     if (redirectUrl) {
                         window.location.href = redirectUrl;

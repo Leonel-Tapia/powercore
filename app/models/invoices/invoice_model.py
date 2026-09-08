@@ -1,4 +1,4 @@
-# /app/models/invoices/invoice_model.py | Updated: 2026-08-12
+# /app/models/invoices/invoice_model.py | Updated: 2026-09-04
 from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, Date, TIMESTAMP, Text, Boolean, Time
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -31,8 +31,8 @@ class Invoice(Base):
     
     # Auditoría y Estado
     operator_username = Column(String(50))
-    created_by = Column(String(100))        # He agregado created_by debajo de operator_username
-    created_at = Column(TIMESTAMP)          # He agregado created_at debajo de operator_username
+    created_by = Column(String(100))
+    created_at = Column(TIMESTAMP)
     authorized_by = Column(String(50))
     auth_date_time = Column(TIMESTAMP)
     status = Column(String(20), default="Invoice", index=True)
@@ -64,9 +64,13 @@ class Invoice(Base):
     payment_amount2 = Column(DECIMAL(12, 2), default=0.00)
     payment_status = Column(String(20), default="PENDING")
     
+    # --- TÉCNICO ASIGNADO (NUEVO) ---
+    technician_id = Column(Integer, ForeignKey("users.id"), nullable=True)
+    
     notes = Column(Text)
 
     # Relaciones
+    technician = relationship("User", foreign_keys=[technician_id])
     items = relationship("InvoiceItem", backref="invoice", cascade="all, delete-orphan")
     estimate = relationship("Estimate", backref="invoice", uselist=False)
 

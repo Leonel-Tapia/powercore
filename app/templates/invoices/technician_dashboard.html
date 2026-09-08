@@ -1,0 +1,561 @@
+<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-07 (return_url para regresar al dashboard) -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PowerCore ERP - Technician Dashboard</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 25px 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0078D4;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+            flex-wrap: wrap;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            color: #0078D4;
+        }
+
+        .header .user-info {
+            font-size: 14px;
+            color: #555;
+        }
+
+        .header .user-info strong {
+            color: #0078D4;
+        }
+
+        .header .date-info {
+            font-size: 13px;
+            color: #777;
+            margin-top: 3px;
+        }
+
+        .btn-logout {
+            background-color: #d32f2f;
+            color: white;
+            border: none;
+            padding: 6px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+            display: inline-block;
+        }
+
+        .btn-logout:hover {
+            background-color: #b71c1c;
+        }
+
+        .counters {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            font-size: 13px;
+            padding: 8px 12px;
+            background-color: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .counters .counter-item {
+            font-weight: 500;
+        }
+
+        .counters .counter-item .badge-count {
+            display: inline-block;
+            padding: 1px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+            margin-left: 4px;
+        }
+
+        .counters .counter-shop .badge-count {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        .counters .counter-mobile .badge-count {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        .counters .counter-total .badge-count {
+            background-color: #0078D4;
+            color: white;
+        }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 8px 0 6px 0;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .section-title .count {
+            font-size: 12px;
+            font-weight: 400;
+            color: #777;
+        }
+
+        .section-divider {
+            border: none;
+            border-top: 2px dashed #e0e0e0;
+            margin: 18px 0;
+        }
+
+        .table-wrapper {
+            position: relative;
+            max-height: 320px;
+            overflow-y: auto;
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            margin-bottom: 4px;
+        }
+
+        .table-wrapper::-webkit-scrollbar {
+            width: 8px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb {
+            background: #c1c1c1;
+            border-radius: 4px;
+        }
+
+        .table-wrapper::-webkit-scrollbar-thumb:hover {
+            background: #a8a8a8;
+        }
+
+        .table-wrapper table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        .table-wrapper thead th {
+            position: sticky;
+            top: 0;
+            background-color: #0078D4;
+            color: white;
+            padding: 5px 8px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+            z-index: 10;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+        }
+
+        .table-wrapper tbody td {
+            padding: 4px 8px;
+            border-bottom: 1px solid #e8e8e8;
+            vertical-align: middle;
+        }
+
+        .table-wrapper tbody tr:hover {
+            background-color: #f5f8fc;
+        }
+
+        .table-wrapper tbody td.address-cell {
+            max-width: 180px;
+            word-wrap: break-word;
+            white-space: normal;
+        }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
+            border-radius: 10px;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            min-width: 45px;
+        }
+
+        .badge-shop {
+            background-color: #e3f2fd;
+            color: #0d47a1;
+        }
+
+        .badge-mobile {
+            background-color: #fff3e0;
+            color: #e65100;
+        }
+
+        .badge-paid {
+            background-color: #e8f5e9;
+            color: #1b5e20;
+        }
+
+        .badge-pending {
+            background-color: #ffebee;
+            color: #b71c1c;
+        }
+
+        .badge-partial {
+            background-color: #fff8e1;
+            color: #f57f17;
+        }
+
+        .empty-section {
+            text-align: center;
+            padding: 16px;
+            color: #aaa;
+            font-size: 13px;
+            font-style: italic;
+            border: 1px dashed #e0e0e0;
+            border-radius: 4px;
+            background-color: #fafafa;
+        }
+
+        .row-counter {
+            text-align: right;
+            font-size: 11px;
+            color: #999;
+            padding: 2px 4px;
+        }
+
+        .invoice-link {
+            color: #0078D4;
+            text-decoration: none;
+            font-weight: 500;
+        }
+        .invoice-link:hover {
+            text-decoration: underline;
+        }
+
+        @media (max-width: 768px) {
+            .container {
+                padding: 12px 15px;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+                gap: 8px;
+            }
+
+            .header .user-info {
+                font-size: 13px;
+            }
+
+            .table-wrapper {
+                max-height: 280px;
+            }
+
+            .table-wrapper table {
+                font-size: 11px;
+            }
+
+            .table-wrapper thead th,
+            .table-wrapper tbody td {
+                padding: 3px 5px;
+            }
+
+            .badge {
+                font-size: 9px;
+                padding: 1px 5px;
+                min-width: 38px;
+            }
+
+            .table-wrapper tbody td.address-cell {
+                max-width: 100px;
+            }
+
+            .counters {
+                font-size: 12px;
+                gap: 10px;
+                padding: 6px 10px;
+            }
+
+            .section-title {
+                font-size: 14px;
+            }
+        }
+
+        @media (max-width: 480px) {
+            .table-wrapper {
+                max-height: 240px;
+            }
+
+            .table-wrapper table {
+                font-size: 10px;
+            }
+
+            .table-wrapper thead th,
+            .table-wrapper tbody td {
+                padding: 2px 4px;
+            }
+
+            .header h1 {
+                font-size: 16px;
+            }
+
+            .table-wrapper tbody td.address-cell {
+                max-width: 70px;
+            }
+
+            .counters {
+                font-size: 11px;
+                gap: 8px;
+            }
+
+            .section-title {
+                font-size: 13px;
+            }
+        }
+
+        .footer {
+            margin-top: 15px;
+            text-align: center;
+            font-size: 10px;
+            color: #888;
+            border-top: 1px solid #e0e0e0;
+            padding-top: 10px;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <div>
+                <h1>📋 Daily Route</h1>
+                <div class="date-info">
+                    Date: {{ today.strftime('%m/%d/%Y') if today else 'Today' }}
+                </div>
+            </div>
+            <div class="user-info">
+                <strong>Technician:</strong> {{ technician_name }}
+            </div>
+            <div>
+                <a href="/auth/logout" class="btn-logout">Logout</a>
+            </div>
+        </div>
+
+        <!-- COUNTERS -->
+        {% set shop_list = invoices|selectattr('service_type', 'equalto', 'SHOP')|list %}
+        {% set mobile_list = invoices|selectattr('service_type', 'in', ['MOBILE', 'MOVIL', 'Mobile', 'mobile'])|list %}
+        <div class="counters">
+            <span class="counter-item counter-shop">
+                🏪 Shop: <span class="badge-count">{{ shop_list|length }}</span>
+            </span>
+            <span class="counter-item counter-mobile">
+                🚐 Mobile: <span class="badge-count">{{ mobile_list|length }}</span>
+            </span>
+            <span class="counter-item counter-total">
+                📊 Total: <span class="badge-count">{{ invoices|length }}</span>
+            </span>
+        </div>
+
+        <!-- ============================================ -->
+        <!-- SHOP SECTION -->
+        <!-- ============================================ -->
+        {% if shop_list %}
+            <div class="section-title">
+                🏪 Shop <span class="count">({{ shop_list|length }} appointments)</span>
+            </div>
+
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Invoice</th>
+                            <th>Customer</th>
+                            <th>Address</th>
+                            <th>Vehicle</th>
+                            <th>Total</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in shop_list %}
+                            <tr>
+                                <td>
+                                    {{ invoice.estimated_appointment_time.strftime('%H:%M') if invoice.estimated_appointment_time else 'N/A' }}
+                                </td>
+                                <td>
+                                    <a href="/invoices/view/{{ invoice.id }}?return_url=/technician/dashboard" class="invoice-link" target="_blank">
+                                        #{{ invoice.id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {{ invoice.customer_name if invoice.customer_name else 'N/A' }}
+                                </td>
+                                <td class="address-cell">
+                                    {{ invoice.customer_address if invoice.customer_address else 'N/A' }}
+                                </td>
+                                <td>
+                                    {{ invoice.vehicle_make if invoice.vehicle_make else '' }}
+                                    {{ invoice.vehicle_model if invoice.vehicle_model else '' }}
+                                    {% if not invoice.vehicle_make and not invoice.vehicle_model %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    ${{ "%.2f"|format(invoice.total or 0) }}
+                                </td>
+                                <td>
+                                    {% set paid = (invoice.payment_amount1 or 0) + (invoice.payment_amount2 or 0) %}
+                                    ${{ "%.2f"|format(paid) }}
+                                </td>
+                                <td>
+                                    {% set balance = (invoice.total or 0) - (invoice.payment_amount1 or 0) - (invoice.payment_amount2 or 0) %}
+                                    <strong>${{ "%.2f"|format(balance) }}</strong>
+                                </td>
+                                <td>
+                                    {% if invoice.payment_status|lower == 'paid' %}
+                                        <span class="badge badge-paid">✅ Paid</span>
+                                    {% elif invoice.payment_status|lower == 'pending' %}
+                                        <span class="badge badge-pending">⏳ Pending</span>
+                                    {% elif invoice.payment_status|lower == 'partial' %}
+                                        <span class="badge badge-partial">🔄 Partial</span>
+                                    {% else %}
+                                        {{ invoice.payment_status }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if shop_list|length > 10 %}
+                <div class="row-counter">↕ Scroll for more ({{ shop_list|length }} total)</div>
+            {% endif %}
+
+            {% if mobile_list %}
+                <hr class="section-divider">
+            {% endif %}
+        {% endif %}
+
+        <!-- ============================================ -->
+        <!-- MOBILE SECTION -->
+        <!-- ============================================ -->
+        <div class="section-title">
+            🚐 Mobile <span class="count">({{ mobile_list|length }} appointments)</span>
+        </div>
+
+        {% if mobile_list %}
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Time</th>
+                            <th>Invoice</th>
+                            <th>Customer</th>
+                            <th>Address</th>
+                            <th>Vehicle</th>
+                            <th>Total</th>
+                            <th>Paid</th>
+                            <th>Balance</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for invoice in mobile_list %}
+                            <tr>
+                                <td>
+                                    {{ invoice.estimated_appointment_time.strftime('%H:%M') if invoice.estimated_appointment_time else 'N/A' }}
+                                </td>
+                                <td>
+                                    <a href="/invoices/view/{{ invoice.id }}?return_url=/technician/dashboard" class="invoice-link" target="_blank">
+                                        #{{ invoice.id }}
+                                    </a>
+                                </td>
+                                <td>
+                                    {{ invoice.customer_name if invoice.customer_name else 'N/A' }}
+                                </td>
+                                <td class="address-cell">
+                                    {{ invoice.customer_address if invoice.customer_address else 'N/A' }}
+                                </td>
+                                <td>
+                                    {{ invoice.vehicle_make if invoice.vehicle_make else '' }}
+                                    {{ invoice.vehicle_model if invoice.vehicle_model else '' }}
+                                    {% if not invoice.vehicle_make and not invoice.vehicle_model %}
+                                        N/A
+                                    {% endif %}
+                                </td>
+                                <td>
+                                    ${{ "%.2f"|format(invoice.total or 0) }}
+                                </td>
+                                <td>
+                                    {% set paid = (invoice.payment_amount1 or 0) + (invoice.payment_amount2 or 0) %}
+                                    ${{ "%.2f"|format(paid) }}
+                                </td>
+                                <td>
+                                    {% set balance = (invoice.total or 0) - (invoice.payment_amount1 or 0) - (invoice.payment_amount2 or 0) %}
+                                    <strong>${{ "%.2f"|format(balance) }}</strong>
+                                </td>
+                                <td>
+                                    {% if invoice.payment_status|lower == 'paid' %}
+                                        <span class="badge badge-paid">✅ Paid</span>
+                                    {% elif invoice.payment_status|lower == 'pending' %}
+                                        <span class="badge badge-pending">⏳ Pending</span>
+                                    {% elif invoice.payment_status|lower == 'partial' %}
+                                        <span class="badge badge-partial">🔄 Partial</span>
+                                    {% else %}
+                                        {{ invoice.payment_status }}
+                                    {% endif %}
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% if mobile_list|length > 10 %}
+                <div class="row-counter">↕ Scroll for more ({{ mobile_list|length }} total)</div>
+            {% endif %}
+        {% else %}
+            <div class="empty-section">
+                No Mobile appointments for today.
+            </div>
+        {% endif %}
+
+        <!-- FOOTER -->
+        <div class="footer">
+            PowerCore ERP — Developed by Leonel Tapia — Version: 2026.09.04
+        </div>
+    </div>
+
+</body>
+</html>

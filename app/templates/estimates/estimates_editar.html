@@ -1,4 +1,4 @@
-<!-- Path: app/templates/estimates_editar.html | Updated: 2026-08-02 -->
+<!-- Path: app/templates/estimates_editar.html | Updated: 2026-09-06 (fixed field names & validation) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -8,7 +8,6 @@
 
     <style>
         body { background: #fffcf5; font-size: 0.75rem; margin-bottom: 140px; }
-        /* Tono ámbar/naranja oscuro para diferenciar la edición */
         .top-header { background: #b45309; color: white; padding: 10px; border-radius: 4px; margin-bottom: 10px; }
         .section-box { background: white; padding: 6px 8px 4px 8px; border-radius: 4px; margin-bottom: 4px; border: 1px solid #d97706; }
         .section-title { color: #b45309; font-weight: bold; font-size: 0.7rem; text-transform: uppercase; border-bottom: 1px solid #fde68a; margin-bottom: 6px; padding-bottom: 2px; }
@@ -22,7 +21,6 @@
         .compact-table input { padding: 2px 5px !important; height: auto !important; font-size: 12px !important; }
         .invalid-cell { background-color: #ffcccc !important; }
 
-        /* Estilo destacado para la fecha y el día */
         .highlight-date-box {
             background-color: #fef3c7;
             border: 1px solid #f59e0b;
@@ -81,7 +79,6 @@
             <small><strong>Created By:</strong> {{ estimate.operator_username or request.session.get('user_name', 'admin') }}</small>
         </div>
 
-        <!-- Botón de duplicar integrado en la barra superior -->
         <div class="text-end d-flex align-items-center" style="gap: 15px;">
             <button type="button" class="btn btn-light btn-sm text-dark fw-bold py-1 px-2" style="font-size: 0.75rem;" onclick="openDuplicateModal()">
                 + New Estimate (Duplicate)
@@ -94,9 +91,6 @@
         <input type="hidden" name="customer_id" value="{{ customer.id }}">
         <input type="hidden" name="estimate_id" value="{{ estimate.id }}">
         <input type="hidden" name="next" value="{{ next }}">
-
-    
-        <!-- Forzar origen de Call Center de forma fija para esta vista -->
         <input type="hidden" name="origin" value="{{ origin }}">
         <input type="hidden" name="selected_date" value="{{ selected_date }}">
 
@@ -104,7 +98,6 @@
         <input type="hidden" name="alt_phone" id="alt_phone" value="{{ estimate.alt_phone or '' }}">
         <input type="hidden" name="alt_relationship" id="alt_relationship" value="{{ estimate.alt_relationship or '' }}">
 
-        <!-- Campos ocultos para persistencia de totales -->
         <input type="hidden" name="subtotal" id="hidden_subtotal" value="0.00">
         <input type="hidden" name="tax_total" id="hidden_tax_total" value="0.00">
         <input type="hidden" name="total_amount" id="hidden_total_amount" value="0.00">
@@ -119,11 +112,10 @@
                     <small>{{ customer.address }}</small><br>
                     <small>{{ customer.phone }} | {{ customer.language }} | Mood: {{ customer.mood }}</small><br>
 
-
                     <a href="/customers/edit/{{ customer.id }}?origin=estimate_edit&estimate_id={{ estimate.id }}&next={{ next }}" 
                        class="btn btn-sm btn-warning mt-1 text-dark fw-bold">Edit Customer</a>
 
-                       <a href="https://www.google.com/maps/search/?api=1&query={{ customer.address | urlencode }}"
+                    <a href="https://www.google.com/maps/search/?api=1&query={{ customer.address | urlencode }}"
                        target="_blank"
                        class="btn btn-sm btn-outline-secondary mt-1">
                        View Map
@@ -175,6 +167,7 @@
                             } else {
                                 hiddenInput.value = "";
                             }
+                            validateMainFields();
                         });
                         </script>
 
@@ -210,7 +203,7 @@
                     <input type="date" id="appointment-date" name="estimated_appointment_date"
                            class="form-control form-control-sm border-warning" style="height:26px; background-color: #fffbeb;"
                            value="{{ estimate.estimated_appointment_date or '' }}"
-                           onchange="updateDayName()">
+                           onchange="updateDayName(); validateMainFields();">
                     
                     <label class="mb-0 mt-1">Time</label>
 
@@ -230,7 +223,7 @@
                         <div class="section-box" style="padding:4px 6px;">
                             <div class="section-title">Service Type</div>
 
-                            <select name="service_type" id="service_type" class="form-control form-control-sm" style="height:26px;" onchange="updateTotals()">
+                            <select name="service_type" id="service_type" class="form-control form-control-sm" style="height:26px;" onchange="updateTotals(); validateMainFields();">
                                 <option value="">-- Select --</option>
                                 <option value="SHOP" {% if estimate.service_type == 'SHOP' %}selected{% endif %}>SHOP</option>
                                 <option value="MOVIL" {% if estimate.service_type == 'MOVIL' %}selected{% endif %}>MOVIL</option>
@@ -293,12 +286,12 @@
                                 <tr class="part-row">
                                     <td><input list="parts-list" name="product_name[]" class="form-control form-control-sm part-input" value="{{ item.product_name or '' }}"></td>
                                     <td><input type="text" name="description[]" class="form-control form-control-sm" value="{{ item.description or '' }}"></td>
-                                    <td><input type="number" name="quantity[]" class="form-control form-control-sm" value="{{ item.quantity or 1 }}" min="1" onchange="validateCell(this); updateTotals()"></td>
-                                    <td><input type="number" name="cost[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.cost or 0.00 }}" onchange="validateCell(this); updateTotals()"></td>
-                                    <td><input type="number" name="price[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.price or 0.00 }}" onchange="validateCell(this); recalculateTax(this); updateTotals()"></td>
+                                    <td><input type="number" name="quantity[]" class="form-control form-control-sm" value="{{ item.quantity or 1 }}" min="1" onchange="validateCell(this); updateTotals(); validateMainFields();"></td>
+                                    <td><input type="number" name="cost[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.cost or 0.00 }}" onchange="validateCell(this); updateTotals();"></td>
+                                    <td><input type="number" name="price[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.price or 0.00 }}" onchange="validateCell(this); recalculateTax(this); updateTotals();"></td>
                                     <td class="text-center"><input type="checkbox" name="is_taxable[]" {% if item.is_taxable %}checked{% endif %} onchange="recalculateTax(this); updateTotals();"></td>
                                     <td><input type="number" name="tax_amount[]" class="form-control form-control-sm" step="0.01" value="{{ item.tax_amount or 0.00 }}" readonly></td>
-                                    <td class="text-center"><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)">X</button></td>
+                                    <td class="text-center"><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this); validateMainFields();">X</button></td>
                                 </tr>
                                 {% endfor %}
                             {% endif %}
@@ -450,17 +443,18 @@ function addPartRow() {
     row.innerHTML = `
         <td><input list="parts-list" name="product_name[]" class="form-control form-control-sm part-input"></td>
         <td><input type="text" name="description[]" class="form-control form-control-sm"></td>
-        <td><input type="number" name="quantity[]" class="form-control form-control-sm" value="1" min="1" onchange="validateCell(this); updateTotals()"></td>
-        <td><input type="number" name="cost[]" class="form-control form-control-sm" step="0.01" min="0" onchange="validateCell(this); updateTotals()"></td>
-        <td><input type="number" name="price[]" class="form-control form-control-sm" step="0.01" min="0" onchange="validateCell(this); recalculateTax(this); updateTotals()"></td>
+        <td><input type="number" name="quantity[]" class="form-control form-control-sm" value="1" min="1" onchange="validateCell(this); updateTotals(); validateMainFields();"></td>
+        <td><input type="number" name="cost[]" class="form-control form-control-sm" step="0.01" min="0" onchange="validateCell(this); updateTotals();"></td>
+        <td><input type="number" name="price[]" class="form-control form-control-sm" step="0.01" min="0" onchange="validateCell(this); recalculateTax(this); updateTotals();"></td>
         <td class="text-center"><input type="checkbox" name="is_taxable[]" checked onchange="recalculateTax(this); updateTotals();"></td>
         <td><input type="number" name="tax_amount[]" class="form-control form-control-sm" step="0.01" readonly></td>
-        <td class="text-center"><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)">X</button></td>
+        <td class="text-center"><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this); validateMainFields();">X</button></td>
     `;
 
     tbody.appendChild(row);
     paginate();
     updateTotals();
+    validateMainFields();
     const newPartInput = row.querySelector('.part-input');
     if (newPartInput) {
         newPartInput.focus();
@@ -471,6 +465,7 @@ function removeRow(btn) {
     btn.closest("tr").remove();
     paginate();
     updateTotals();
+    validateMainFields();
 }
 
 function recalculateTax(element) {
@@ -497,6 +492,7 @@ document.addEventListener("input", function(e) {
             row.querySelector('input[name="price[]"]').value = part.price || 0;
             recalculateTax(row.querySelector('input[name="price[]"]'));
             updateTotals();
+            validateMainFields();
         }
     }
 });
@@ -597,6 +593,7 @@ function triggerModelLoad(makeName) {
 document.getElementById('make-input').addEventListener('change', function() {
     document.getElementById('model-input').value = '';
     triggerModelLoad(this.value);
+    validateMainFields();
 });
 </script>
 
@@ -604,7 +601,6 @@ document.getElementById('make-input').addEventListener('change', function() {
 <div id="appointmentModal" class="modal" style="display:none;">
     <div class="modal-content" style="width: 650px; max-width: 90%;">
 
-        <!-- ⭐ FECHA Y DÍA DESTACADOS DENTRO DEL MODAL -->
         <div style="text-align:center; margin-bottom: 15px;">
             <h2 style="margin-bottom: 10px;">Select Appointment Time</h2>
             <div class="d-flex justify-content-center align-items-center" style="gap: 10px;">
@@ -761,7 +757,7 @@ async function loadTimes(date, serviceType, containerId, countId) {
             btn.classList.add(isOccupied ? "time-mobile-unavailable" : "time-mobile-available"); 
         }
         
-        btn.innerText = isOccupied ? `${display} — No disponible` : `${display} — Disponible`;
+        btn.innerText = isOccupied ? `${display} — Occupied` : `${display} — Available`;
         btn.disabled = isOccupied;
 
         if (!isOccupied) { 
@@ -792,6 +788,7 @@ function closeAppointmentModalSubmit() {
     document.getElementById("time-display").value = convertToDisplay(tempSelectedTime);
     document.getElementById("service_type").value = tempSelectedServiceType;
     updateTotals();
+    validateMainFields();
     document.getElementById("appointmentModal").style.display = "none";
 }
 
@@ -832,6 +829,8 @@ document.getElementById("appointment-date").addEventListener("click", function()
     if (date) {
         updateDayName();
         openAppointmentModal(date);
+    } else {
+        openAppointmentModal();
     }
 });
 </script>
@@ -855,9 +854,12 @@ document.addEventListener("DOMContentLoaded", function() {
 <script>
 function validateMainFields() {
     const fields = ["vehicle_year_id", "make-input", "model-input", "appointment-date", "time-hidden", "service_type"];
-    const incomplete = fields.some(id => !document.getElementById(id).value.trim());
-    const hasParts = document.querySelectorAll("#partsBody tr").length > 0;
+    const incomplete = fields.some(id => {
+        const el = document.getElementById(id);
+        return !el || !el.value.trim();
+    });
     
+    const hasParts = document.querySelectorAll("#partsBody tr").length > 0;
     const saveBtn = document.getElementById("save-btn");
     const isInvalid = incomplete || !hasParts;
 
@@ -867,15 +869,16 @@ function validateMainFields() {
     
     return !isInvalid;
 }
+
+document.getElementById("estimate-form").addEventListener("input", validateMainFields);
+document.getElementById("estimate-form").addEventListener("change", validateMainFields);
+
 document.getElementById("estimate-form").addEventListener("submit", function(e) { 
     if (!validateMainFields()) {
         e.preventDefault();
         alert("Please ensure all vehicle details, date, time, and service type are completed, and at least one service/part is added.");
     }
 });
-
-document.addEventListener("input", validateMainFields);
-document.addEventListener("change", validateMainFields);
 </script>
 
 <!-- MODAL PARA ANULAR (VOID) ESTIMADO -->
@@ -928,7 +931,6 @@ function closeDuplicateModal() {
 
 function confirmDuplicateEstimate() {
     window.location.href = "/estimates/duplicate/{{ estimate.id }}?next={{ next }}";
-
 }
 </script>
 

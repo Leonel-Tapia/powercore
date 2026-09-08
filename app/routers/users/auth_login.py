@@ -1,5 +1,5 @@
 # RUTA: app/routers/users/auth_login.py
-# ACTUALIZADO: 2026-07-16 12:55 MDT
+# ACTUALIZADO: 2026-09-04
 
 from fastapi import APIRouter, Depends, Request, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -28,6 +28,9 @@ def redirect_by_role(role: str):
 
     if role == "manager":
         return "/company/main_menu"
+
+    if role == "technician":
+        return "/technician/dashboard"
 
     return "/company/main_menu"
 
@@ -66,13 +69,13 @@ def login_action(
             context={"error": "User account is disabled", "company_name": company_name}
         )
 
-    # 🔥 PROCESAR ROL CORRECTAMENTE
+    # PROCESAR ROL CORRECTAMENTE
     user_role_clean = str(user.role).strip().lower()
 
-    # 🔥 USAR EL CAMPO CORRECTO DEL MODELO
+    # USAR EL CAMPO CORRECTO DEL MODELO
     user_full_name = user.full_name
 
-    # 🔥 GUARDAR USUARIO EN SESIÓN (CORRECTO)
+    # GUARDAR USUARIO EN SESIÓN
     request.session["user_id"] = user.id
     request.session["user_name"] = user_full_name
     request.session["username"] = user.username
@@ -84,3 +87,9 @@ def login_action(
     print(f"INFO: Redirigiendo a {redirect_url} para: {username}")
 
     return RedirectResponse(url=redirect_url, status_code=303)
+
+
+@router.get("/logout")
+def logout(request: Request):
+    request.session.clear()
+    return RedirectResponse(url="/auth/login", status_code=303)

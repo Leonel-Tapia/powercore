@@ -1,4 +1,4 @@
-# /app/routers/estimates/estimates_router.py | Updated: 2026-08-15
+# /app/routers/estimates/estimates_router.py | Updated: 2026-09-05
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -150,7 +150,7 @@ def after_save_view(
 
 
 # ============================================================
-# 3. SAVE ESTIMATE (POST)
+# 3. SAVE ESTIMATE (POST) - CON FILTRO DE FILAS VACÍAS
 # ============================================================
 @router.post("/save")
 def save_estimate(
@@ -215,19 +215,37 @@ def save_estimate(
 
     tax_list = is_taxable if is_taxable else []
     
+    # ============================================================
+    # NUEVO: FILTRAR FILAS VACÍAS - Ignorar filas sin product_name
+    # ============================================================
     for i in range(len(product_name)):
+        # Si el nombre del producto está vacío, saltar esta fila
+        if not product_name[i] or not product_name[i].strip():
+            continue
+        
+        # Si no tiene precio o cantidad válida, saltar
+        if i >= len(price) or price[i] <= 0:
+            continue
+        
         is_tax = "on" in str(tax_list[i]) if i < len(tax_list) else False
+        
+        # Asegurar que tenemos valores por defecto para campos vacíos
+        qty = quantity[i] if i < len(quantity) and quantity[i] > 0 else 1
+        cost_val = cost[i] if i < len(cost) else 0.0
+        price_val = price[i] if i < len(price) else 0.0
+        tax_val = tax_amount[i] if i < len(tax_amount) else 0.0
+        desc = description[i] if i < len(description) else ""
         
         new_detail = EstimateDetail(
             estimate_id=target_id,
-            product_name=product_name[i],
-            description=description[i],
-            quantity=quantity[i],
-            cost=cost[i],
-            price=price[i],
+            product_name=product_name[i].strip(),
+            description=desc,
+            quantity=qty,
+            cost=cost_val,
+            price=price_val,
             is_taxable=is_tax,
-            tax_amount=tax_amount[i],
-            part_number=product_name[i],
+            tax_amount=tax_val,
+            part_number=product_name[i].strip(),
             supplier=None
         )
         db.add(new_detail)
@@ -241,7 +259,7 @@ def save_estimate(
 
 
 # ============================================================
-# 3.5 UPDATE ESTIMATE (POST)
+# 3.5 UPDATE ESTIMATE (POST) - CON FILTRO DE FILAS VACÍAS
 # ============================================================
 @router.post("/update/{estimate_id}")
 def update_estimate(
@@ -303,19 +321,37 @@ def update_estimate(
 
     tax_list = is_taxable if is_taxable else []
     
+    # ============================================================
+    # NUEVO: FILTRAR FILAS VACÍAS - Ignorar filas sin product_name
+    # ============================================================
     for i in range(len(product_name)):
+        # Si el nombre del producto está vacío, saltar esta fila
+        if not product_name[i] or not product_name[i].strip():
+            continue
+        
+        # Si no tiene precio o cantidad válida, saltar
+        if i >= len(price) or price[i] <= 0:
+            continue
+        
         is_tax = "on" in str(tax_list[i]) if i < len(tax_list) else False
+        
+        # Asegurar que tenemos valores por defecto para campos vacíos
+        qty = quantity[i] if i < len(quantity) and quantity[i] > 0 else 1
+        cost_val = cost[i] if i < len(cost) else 0.0
+        price_val = price[i] if i < len(price) else 0.0
+        tax_val = tax_amount[i] if i < len(tax_amount) else 0.0
+        desc = description[i] if i < len(description) else ""
         
         new_detail = EstimateDetail(
             estimate_id=target_id,
-            product_name=product_name[i],
-            description=description[i],
-            quantity=quantity[i],
-            cost=cost[i],
-            price=price[i],
+            product_name=product_name[i].strip(),
+            description=desc,
+            quantity=qty,
+            cost=cost_val,
+            price=price_val,
             is_taxable=is_tax,
-            tax_amount=tax_amount[i],
-            part_number=product_name[i],
+            tax_amount=tax_val,
+            part_number=product_name[i].strip(),
             supplier=None
         )
         db.add(new_detail)
