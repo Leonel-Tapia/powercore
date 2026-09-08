@@ -1,6 +1,6 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (SendGrid email)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (PDF download only, removed email)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
-from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func, or_, desc, asc
 from datetime import datetime, date
@@ -19,13 +19,10 @@ from app.models.inventory.time_model import TimeCatalog
 from app.models.company.company import Company
 from app.models.company.user import User
 
-# ===== NUEVAS IMPORTACIONES PARA SENDGRID =====
-import os
-import base64
-import requests
+# ===== IMPORTACIONES PARA PDF =====
 from io import BytesIO
 from xhtml2pdf import pisa
-# ============================================
+# ==================================
 
 router = APIRouter(
     prefix="/invoices",
@@ -921,63 +918,40 @@ async def create_invoice_activity(
 
 
 # ============================================================
-# 10. SEND INVOICE BY EMAIL (SendGrid API)
+# 10. DOWNLOAD INVOICE PDF (sin guardar en disco)
 # ============================================================
-@router.post("/email/{invoice_id}")
-async def send_invoice_email(
+@router.get("/download/{invoice_id}")
+async def download_invoice_pdf(
     invoice_id: int,
     request: Request,
-    email_to: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    try:
-        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
-        if not invoice:
-            raise HTTPException(status_code=404, detail="Invoice not found")
+    invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+    if not invoice:
+        raise HTTPException(status_code=404, detail="Invoice not found")
 
-        customer = db.query(Customer).filter(Customer.id == invoice.customer_id).first()
-        invoice_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
-        company = db.query(Company).first()
+    customer = db.query(Customer).filter(Customer.id == invoice.customer_id).first()
+    invoice_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == invoice_id).all()
+    company = db.query(Company).first()
 
-        from_email = "powercore.test.email@gmail.com"
-
-        html = templates.get_template("invoices/invoice_pdf.html").render(
-            {
-                "invoice": invoice,
-                "customer": customer,
-                "invoice_items": invoice_items,
-                "company": company,
-                "now": datetime.now(),
-            }
-        )
-
-        pdf_buffer = BytesIO()
-        pisa.CreatePDF(BytesIO(html.encode("utf-8")), pdf_buffer)
-        pdf_buffer.seek(0)
-
-        url = "https://api.sendgrid.com/v3/mail/send"
-        headers = {
-            "Authorization": f"Bearer {os.getenv('SENDGRID_API_KEY')}",
-            "Content-Type": "application/json"
+    html = templates.get_template("invoices/invoice_pdf.html").render(
+        {
+            "invoice": invoice,
+            "customer": customer,
+            "invoice_items": invoice_items,
+            "company": company,
+            "now": datetime.now(),
         }
-        data = {
-            "personalizations": [{"to": [{"email": email_to}]}],
-            "from": {"email": from_email},
-            "subject": f"Invoice #{invoice.id} - PowerCore",
-            "content": [{"type": "text/plain", "value": f"Please find attached invoice #{invoice.id}."}],
-            "attachments": [{
-                "content": base64.b64encode(pdf_buffer.getvalue()).decode(),
-                "filename": f"invoice_{invoice.id}.pdf",
-                "type": "application/pdf",
-                "disposition": "attachment"
-            }]
+    )
+
+    pdf_buffer = BytesIO()
+    pisa.CreatePDF(BytesIO(html.encode("utf-8")), pdf_buffer)
+    pdf_buffer.seek(0)
+
+    return Response(
+        content=pdf_buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename=invoice_{invoice_id}.pdf"
         }
-
-        response = requests.post(url, json=data, headers=headers)
-        if response.status_code != 202:
-            raise HTTPException(status_code=500, detail="SendGrid error: " + response.text)
-
-        return RedirectResponse(url=f"/invoices/view/{invoice_id}", status_code=303)
-
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Email sending failed: {str(e)}")
+    )
