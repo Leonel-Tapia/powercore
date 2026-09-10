@@ -3,7 +3,7 @@
 # ACTUALIZADO: 2026-06-23 20:10 MDT
 # DESCRIPCIÓN: Customer model aligned with DB table (100% match)
 
-from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, Date, TIMESTAMP, func
+from sqlalchemy import Column, Integer, String, Text, Boolean, Numeric, Date, TIMESTAMP, Float, func
 from app.database.database import Base
 
 
@@ -40,6 +40,12 @@ class Customer(Base):
     city = Column(String(100))
     state = Column(String(2))
     zip_code = Column(String(5))
+
+    # ============================
+    # GEOCODING FIELDS (NUEVOS)
+    # ============================
+    latitude = Column(Float, nullable=True)
+    longitude = Column(Float, nullable=True)
 
     tax_id = Column(String(50))
     language = Column(String(20))

@@ -1,9 +1,9 @@
 # /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (PDF download only, removed email)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 from sqlalchemy import func, or_, desc, asc
-from datetime import datetime, date
+from datetime import datetime, date, timedelta
 from typing import List, Optional
 from decimal import Decimal
 from app.database.database import get_db
@@ -23,6 +23,12 @@ from app.models.company.user import User
 from io import BytesIO
 from xhtml2pdf import pisa
 # ==================================
+
+# ===== IMPORTACIONES PARA RUTAS Y GEOCODING =====
+import os
+from app.utils.geocoding import geocode_address
+from app.utils.routing import optimize_route
+# =================================================
 
 router = APIRouter(
     prefix="/invoices",
@@ -788,6 +794,8 @@ def invoices_workshop_view(
         
         invoices_data.append((inv, customer, vehicle_year, total_paid, balance_due, inv.estimated_appointment_time))
     
+    technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
+    
     return templates.TemplateResponse(
         request=request,
         name="call_center/call_center_invoices_workshop.html",
@@ -801,7 +809,8 @@ def invoices_workshop_view(
             "partially_paid_count": partially_paid_count,
             "paid_count": paid_count,
             "void_count": void_count,
-            "return_url": return_url
+            "return_url": return_url,
+            "technicians": technicians
         }
     )
 
@@ -955,3 +964,178 @@ async def download_invoice_pdf(
             "Content-Disposition": f"attachment; filename=invoice_{invoice_id}.pdf"
         }
     )
+
+
+# ============================================================
+# 11. OPTIMIZE ROUTE BY DISTANCE (for manager)
+# ============================================================
+@router.post("/workshop/optimize-route")
+async def optimize_invoices_route(
+    date: str = Query(..., description="Fecha en formato YYYY-MM-DD"),
+    technician_id: Optional[int] = Query(None, description="ID del técnico (opcional)"),
+    db: Session = Depends(get_db)
+):
+    """
+    Calcula la ruta óptima desde la base (ORIGIN_ADDRESS) para las facturas de un día.
+    Guarda la hora sugerida en tentative_time SIN modificar estimated_appointment_time.
+    """
+    # 1. Parsear fecha
+    try:
+        target_date = datetime.strptime(date, "%Y-%m-%d").date()
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Formato de fecha inválido. Usa YYYY-MM-DD")
+    
+    # 2. Obtener facturas del día (y técnico si se especifica)
+    query = db.query(Invoice).options(joinedload(Invoice.customer))
+    query = query.filter(Invoice.estimated_appointment_date == target_date)
+    
+    if technician_id:
+        query = query.filter(Invoice.technician_id == technician_id)
+    
+    invoices = query.all()
+    
+    if not invoices:
+        return {
+            "success": True,
+            "message": "No hay facturas para este día",
+            "route": [],
+            "origin": os.getenv("ORIGIN_ADDRESS", "5250 N Pecos St, Denver, CO 80221")
+        }
+    
+    # 3. Preparar lista de facturas con coordenadas de cliente
+    invoices_data = []
+    for inv in invoices:
+        customer = inv.customer
+        if not customer:
+            continue
+        
+        lat = customer.latitude
+        lng = customer.longitude
+        
+        # Si el cliente no tiene coordenadas, geocodificar ahora
+        if lat is None or lng is None:
+            if customer.address:
+                coords = geocode_address(f"{customer.address}, {customer.city}, {customer.state} {customer.zip_code}")
+                if coords:
+                    lat, lng = coords
+                    customer.latitude = lat
+                    customer.longitude = lng
+                    db.commit()
+                else:
+                    continue
+            else:
+                continue
+        
+        # Combinar fecha + hora original en un solo datetime (solo referencia)
+        original_dt = None
+        if inv.estimated_appointment_date and inv.estimated_appointment_time:
+            original_dt = datetime.combine(inv.estimated_appointment_date, inv.estimated_appointment_time)
+        
+        invoices_data.append({
+            "id": inv.id,
+            "customer_name": customer.name,
+            "address": customer.address,
+            "customer_lat": lat,
+            "customer_lng": lng,
+            "original_appointment": original_dt,
+            "invoice_obj": inv,
+        })
+    
+    if not invoices_data:
+        return {
+            "success": False,
+            "message": "No se pudieron obtener coordenadas para ninguna factura",
+            "route": []
+        }
+    
+    # 4. Geocodificar la dirección base
+    origin_address = os.getenv("ORIGIN_ADDRESS", "5250 N Pecos St, Denver, CO 80221")
+    origin_coords = geocode_address(origin_address)
+    if not origin_coords:
+        origin_coords = (39.7670, -105.0342)
+    
+    # 5. Calcular ruta óptima (hora de salida: 8:00 AM)
+    start_time = datetime.combine(target_date, datetime.strptime("08:00:00", "%H:%M:%S").time())
+    
+    try:
+        optimized_route = optimize_route(
+            invoices_data,
+            origin_coords,
+            start_time,
+            minutes_per_visit=40
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Error al optimizar ruta: {str(e)}")
+    
+    # 6. Guardar tentative_time en cada factura (SIN tocar estimated_appointment_time)
+    for item in optimized_route:
+        inv = item.get("invoice_obj")
+        if inv:
+            inv.tentative_time = item["suggested_arrival"]
+    db.commit()
+    
+    # 7. Formatear respuesta para el frontend
+    result = []
+    for item in optimized_route:
+        result.append({
+            "invoice_id": item["id"],
+            "customer_name": item["customer_name"],
+            "address": item["address"],
+            "order_index": item["order_index"],
+            "travel_time_minutes": item["travel_time_minutes"],
+            "distance_miles": item["distance_miles"],
+            "suggested_arrival": item["suggested_arrival"].isoformat(),
+            "suggested_departure": item["suggested_departure"].isoformat(),
+            "original_appointment": item["original_appointment"].isoformat() if item.get("original_appointment") else None,
+        })
+    
+    return {
+        "success": True,
+        "origin": origin_address,
+        "start_time": "08:00:00",
+        "minutes_per_visit": 40,
+        "route": result,
+        "total_invoices": len(result)
+    }
+
+
+# ============================================================
+# 12. APPLY TENTATIVE TIME TO OFFICIAL APPOINTMENT (for manager)
+# ============================================================
+@router.patch("/{invoice_id}/apply-tentative-time")
+async def apply_tentative_time(
+    invoice_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Copia tentative_time a estimated_appointment_date + estimated_appointment_time.
+    Se llama SOLO cuando el manager confirma con el cliente que acepta el cambio.
+    """
+    try:
+        invoice = db.query(Invoice).filter(Invoice.id == invoice_id).first()
+        if not invoice:
+            raise HTTPException(status_code=404, detail="Invoice not found")
+        
+        if not invoice.tentative_time:
+            raise HTTPException(status_code=400, detail="No tentative time available for this invoice")
+        
+        # Copiar fecha y hora
+        invoice.estimated_appointment_date = invoice.tentative_time.date()
+        invoice.estimated_appointment_time = invoice.tentative_time.time()
+        
+        # Limpiar el tentative_time (ya se aplicó oficialmente)
+        invoice.tentative_time = None
+        
+        db.commit()
+        
+        return {
+            "success": True,
+            "message": "Appointment time updated successfully",
+            "new_appointment": invoice.tentative_time.isoformat() if invoice.tentative_time else datetime.combine(invoice.estimated_appointment_date, invoice.estimated_appointment_time).isoformat()
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))

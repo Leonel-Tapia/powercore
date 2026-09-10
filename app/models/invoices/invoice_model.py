@@ -28,6 +28,7 @@ class Invoice(Base):
     time_created = Column(TIMESTAMP, server_default=func.now())
     estimated_appointment_date = Column(Date)
     estimated_appointment_time = Column(Time) 
+    tentative_time = Column(TIMESTAMP, nullable=True)
     
     # Auditoría y Estado
     operator_username = Column(String(50))
