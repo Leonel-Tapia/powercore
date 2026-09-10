@@ -1,4 +1,4 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-07 (data attributes + event listeners) -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-10 (appointment date) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -102,6 +102,92 @@
             </div>
         </div>
 
+        <!-- ============================================================ -->
+        <!-- ROUTE OPTIMIZER TOOLBAR -->
+        <!-- ============================================================ -->
+        <div class="card shadow-sm mb-2 border-primary">
+            <div class="card-body bg-white py-2 px-3">
+                <div class="row align-items-center g-2">
+                    <div class="col-auto">
+                        <label for="technicianSelect" class="col-form-label fw-bold small">
+                            <i class="fas fa-user-cog text-primary me-1"></i> Technician:
+                        </label>
+                    </div>
+                    <div class="col-auto">
+                        <select id="technicianSelect" class="form-select form-select-sm py-1">
+                            <option value="">All Technicians</option>
+                            {% for tech in technicians %}
+                                <option value="{{ tech.id }}">{{ tech.full_name }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="col-auto">
+                        <button type="button" id="optimizeRouteBtn" class="btn btn-primary btn-sm py-1 px-3">
+                            <i class="fas fa-route me-1"></i> Optimize Route by Distance
+                        </button>
+                    </div>
+                    <div class="col-auto">
+                        <div id="loadingSpinner" class="spinner-border spinner-border-sm text-primary" role="status" style="display: none;">
+                            <span class="visually-hidden">Loading...</span>
+                        </div>
+                    </div>
+                    <div class="col-auto">
+                        <small class="text-muted">
+                            <i class="fas fa-info-circle me-1"></i>
+                            Suggests an optimized order from the base. The original appointment time is NOT changed until you click Apply.
+                        </small>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- ============================================================ -->
+        <!-- OPTIMIZED ROUTE RESULTS -->
+        <!-- ============================================================ -->
+        <div id="optimizationResults" class="card shadow-sm mb-2 border-success" style="display: none;">
+            <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
+                <div>
+                    <i class="fas fa-route me-1"></i>
+                    <strong>Optimized Route Suggestion</strong>
+                </div>
+                <div>
+                    <button type="button" id="applyAllBtn" class="btn btn-sm btn-light py-0 px-2 me-1">
+                        <i class="fas fa-check-double me-1"></i> Apply All (after client confirmation)
+                    </button>
+                    <button type="button" id="hideResultsBtn" class="btn btn-sm btn-outline-light py-0 px-2">
+                        <i class="fas fa-times me-1"></i> Hide
+                    </button>
+                </div>
+            </div>
+            <div class="card-body p-2">
+                <div class="mb-2 small">
+                    <strong>Origin:</strong> <span id="originAddress"></span> &nbsp;|&nbsp;
+                    <strong>Start:</strong> <span id="startTime"></span> &nbsp;|&nbsp;
+                    <strong>Minutes per visit:</strong> <span id="minutesPerVisit"></span>
+                </div>
+                <div class="table-responsive">
+                    <table class="table table-sm table-striped table-hover align-middle mb-0 small" id="optimizedRouteTable">
+                        <thead class="table-success">
+                            <tr>
+                                <th class="text-nowrap">Order</th>
+                                <th class="text-nowrap">Invoice #</th>
+                                <th>Customer</th>
+                                <th>Address</th>
+                                <th class="text-nowrap">Travel</th>
+                                <th class="text-nowrap">Distance</th>
+                                <th class="text-nowrap">Original Time</th>
+                                <th class="text-nowrap">Suggested Arrival</th>
+                                <th class="text-center text-nowrap">Action</th>
+                            </tr>
+                        </thead>
+                        <tbody id="routeTableBody">
+                            <!-- Filled by JavaScript -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
         <!-- Invoices Table Card -->
         <div class="card shadow-sm">
             <div class="card-body p-0">
@@ -110,7 +196,7 @@
                         <thead class="table-dark">
                             <tr>
                                 <th class="py-2 text-nowrap">#</th>
-                                <th class="py-2 text-nowrap">Date</th>
+                                <th class="py-2 text-nowrap">Appt Date</th>
                                 <th class="py-2 text-nowrap">Time</th>
                                 <th class="py-2">Customer</th>
                                 <th class="py-2">Vehicle</th>
@@ -134,11 +220,7 @@
                                         </a>
                                     </td>
                                     <td class="py-1 text-nowrap">
-                                        {% if invoice.created_at %}
-                                            {{ invoice.created_at.strftime('%Y-%m-%d') }}
-                                        {% else %}
-                                            {{ invoice.date_request or 'N/A' }}
-                                        {% endif %}
+                                        {{ invoice.estimated_appointment_date.strftime('%Y-%m-%d') if invoice.estimated_appointment_date else '—' }}
                                     </td>
                                     <td class="py-1 text-nowrap">
                                         {{ appt_time.strftime('%I:%M %p') if appt_time else '—' }}
@@ -502,6 +584,168 @@
             } catch (error) {
                 alert('Network error: ' + error.message);
             }
+        });
+    </script>
+
+    <!-- ============================================================ -->
+    <!-- ROUTE OPTIMIZER -->
+    <!-- ============================================================ -->
+    <script>
+        document.addEventListener('DOMContentLoaded', function() {
+            const optimizeBtn = document.getElementById('optimizeRouteBtn');
+            const loadingSpinner = document.getElementById('loadingSpinner');
+            const resultsDiv = document.getElementById('optimizationResults');
+            const routeBody = document.getElementById('routeTableBody');
+            const applyAllBtn = document.getElementById('applyAllBtn');
+            const hideResultsBtn = document.getElementById('hideResultsBtn');
+            const dateInput = document.getElementById('selected_date');
+            const technicianSelect = document.getElementById('technicianSelect');
+
+            // Guardar copia de la tabla original para poder "Hide"
+            optimizeBtn.addEventListener('click', async function() {
+                const date = dateInput ? dateInput.value : null;
+                if (!date) {
+                    alert('Please select a date first.');
+                    return;
+                }
+
+                const technicianId = technicianSelect ? technicianSelect.value : '';
+
+                loadingSpinner.style.display = 'inline-block';
+                optimizeBtn.disabled = true;
+                resultsDiv.style.display = 'none';
+
+                try {
+                    const url = `/invoices/workshop/optimize-route?date=${date}${technicianId ? '&technician_id=' + technicianId : ''}`;
+                    const response = await fetch(url, { method: 'POST' });
+                    const data = await response.json();
+
+                    if (!data.success) {
+                        alert('Error: ' + (data.message || 'Unknown error'));
+                        return;
+                    }
+
+                    if (!data.route || data.route.length === 0) {
+                        alert(data.message || 'No invoices found for this date/technician.');
+                        return;
+                    }
+
+                    displayRoute(data);
+                    resultsDiv.style.display = 'block';
+                    resultsDiv.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+                } catch (error) {
+                    console.error('Error optimizing route:', error);
+                    alert('An error occurred while optimizing the route.');
+                } finally {
+                    loadingSpinner.style.display = 'none';
+                    optimizeBtn.disabled = false;
+                }
+            });
+
+            function displayRoute(data) {
+                document.getElementById('originAddress').textContent = data.origin;
+                document.getElementById('startTime').textContent = data.start_time;
+                document.getElementById('minutesPerVisit').textContent = data.minutes_per_visit;
+
+                routeBody.innerHTML = '';
+                data.route.forEach(item => {
+                    const row = document.createElement('tr');
+
+                    const arrival = new Date(item.suggested_arrival);
+                    const arrivalStr = arrival.toLocaleString('en-US', {
+                        hour: '2-digit', minute: '2-digit', hour12: true, month: 'short', day: 'numeric'
+                    });
+
+                    let originalStr = '—';
+                    if (item.original_appointment) {
+                        const orig = new Date(item.original_appointment);
+                        originalStr = orig.toLocaleString('en-US', {
+                            hour: '2-digit', minute: '2-digit', hour12: true, month: 'short', day: 'numeric'
+                        });
+                    }
+
+                    row.innerHTML = `
+                        <td><strong>#${item.order_index}</strong></td>
+                        <td>INV-${item.invoice_id}</td>
+                        <td>${item.customer_name || ''}</td>
+                        <td>${item.address || 'N/A'}</td>
+                        <td>${item.travel_time_minutes} min</td>
+                        <td>${item.distance_miles} mi</td>
+                        <td class="text-muted">${originalStr}</td>
+                        <td><strong class="text-success">${arrivalStr}</strong></td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-success apply-time-btn py-0 px-2"
+                                    data-invoice-id="${item.invoice_id}">
+                                <i class="fas fa-check me-1"></i> Apply
+                            </button>
+                        </td>
+                    `;
+                    routeBody.appendChild(row);
+                });
+
+                document.querySelectorAll('.apply-time-btn').forEach(btn => {
+                    btn.addEventListener('click', async function() {
+                        const invoiceId = this.dataset.invoiceId;
+                        await applyTimeToInvoice(invoiceId, this);
+                    });
+                });
+            }
+
+            async function applyTimeToInvoice(invoiceId, buttonElement) {
+                if (!confirm(`Apply the suggested time to invoice #INV-${invoiceId}?\n\nOnly do this AFTER the customer has accepted the new time.`)) {
+                    return;
+                }
+
+                const originalHTML = buttonElement.innerHTML;
+                buttonElement.innerHTML = '<i class="fas fa-spinner fa-spin"></i>';
+                buttonElement.disabled = true;
+
+                try {
+                    const response = await fetch(`/invoices/${invoiceId}/apply-tentative-time`, {
+                        method: 'PATCH',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const data = await response.json();
+
+                    if (response.ok && data.success) {
+                        buttonElement.innerHTML = '<i class="fas fa-check-double me-1"></i> Done';
+                        buttonElement.className = 'btn btn-sm btn-secondary py-0 px-2';
+                        // Recargar la página para reflejar el cambio en la tabla principal
+                        setTimeout(() => window.location.reload(), 600);
+                    } else {
+                        alert('Error: ' + (data.detail || data.message || 'Failed to apply time.'));
+                        buttonElement.innerHTML = originalHTML;
+                        buttonElement.disabled = false;
+                    }
+                } catch (error) {
+                    console.error('Error applying time:', error);
+                    alert('Network error: ' + error.message);
+                    buttonElement.innerHTML = originalHTML;
+                    buttonElement.disabled = false;
+                }
+            }
+
+            applyAllBtn.addEventListener('click', async function() {
+                const buttons = Array.from(document.querySelectorAll('.apply-time-btn:not(:disabled)'));
+                if (buttons.length === 0) {
+                    alert('No pending applications found.');
+                    return;
+                }
+                if (!confirm(`Apply ALL ${buttons.length} suggested times?\n\nOnly do this AFTER every customer has accepted the new time.`)) {
+                    return;
+                }
+
+                for (const btn of buttons) {
+                    const invoiceId = btn.dataset.invoiceId;
+                    await applyTimeToInvoice(invoiceId, btn);
+                    await new Promise(resolve => setTimeout(resolve, 250));
+                }
+            });
+
+            hideResultsBtn.addEventListener('click', function() {
+                resultsDiv.style.display = 'none';
+            });
         });
     </script>
 

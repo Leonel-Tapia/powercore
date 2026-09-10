@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-08 (PDF download only, removed email)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-10 (fix section 11 - customer relation)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -355,9 +355,8 @@ def get_invoice_history(
             "service_type": inv.service_type or "",
             "status": inv.status or "PENDING",
             "operator": inv.operator_username or "",
-            "date": inv.time_created.strftime("%Y-%m-%d") if inv.time_created else (
-                inv.date_request.strftime("%Y-%m-%d") if inv.date_request else None
-            )
+            "date": inv.estimated_appointment_date.strftime("%Y-%m-%d") if inv.estimated_appointment_date else None,
+            "appointment_time": inv.estimated_appointment_time.strftime("%I:%M %p") if inv.estimated_appointment_time else None,
         })
     
     return JSONResponse(content={
@@ -986,7 +985,7 @@ async def optimize_invoices_route(
         raise HTTPException(status_code=400, detail="Formato de fecha inválido. Usa YYYY-MM-DD")
     
     # 2. Obtener facturas del día (y técnico si se especifica)
-    query = db.query(Invoice).options(joinedload(Invoice.customer))
+    query = db.query(Invoice)
     query = query.filter(Invoice.estimated_appointment_date == target_date)
     
     if technician_id:
@@ -1005,7 +1004,8 @@ async def optimize_invoices_route(
     # 3. Preparar lista de facturas con coordenadas de cliente
     invoices_data = []
     for inv in invoices:
-        customer = inv.customer
+        # Obtener customer manualmente (no hay relación en el modelo)
+        customer = db.query(Customer).filter(Customer.id == inv.customer_id).first()
         if not customer:
             continue
         
