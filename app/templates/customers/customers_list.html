@@ -1,4 +1,4 @@
-<!-- /app/templates/customer/customer_list.html | Updated: 2026-08-13 -->
+<!-- /app/templates/customers/customers_list.html | Updated: 2026-09-11 (geocode banner) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -7,6 +7,42 @@
     <style>
         body { font-family: Arial, sans-serif; background-color: #f4f6f9; margin: 0; padding: 0; }
         .container { width: 95%; max-width: 1400px; margin: 15px auto; background: white; padding: 15px; border-radius: 8px; box-shadow: 0 0 10px rgba(0,0,0,0.1); padding-bottom: 60px; position: relative; }
+
+        /* ===== GEOCODE BANNER ===== */
+        .geocode-banner {
+            padding: 10px 15px;
+            border-radius: 6px;
+            margin-bottom: 12px;
+            font-size: 14px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            animation: fadeIn 0.3s ease-in;
+        }
+        .geocode-banner.ok {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .geocode-banner.fail {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
+        }
+        .geocode-banner .close-btn {
+            background: transparent;
+            border: none;
+            font-size: 18px;
+            cursor: pointer;
+            color: inherit;
+            opacity: 0.6;
+        }
+        .geocode-banner .close-btn:hover { opacity: 1; }
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(-5px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        /* ========================= */
 
         /* 🔥 TÍTULO FIJO — MENOS ESPACIO */
         h2 {
@@ -73,6 +109,21 @@
 <body>
     <div class="container">
         <h2>Customer Catalog</h2>
+
+        <!-- ===== GEOCODE STATUS BANNER ===== -->
+        {% set geocode_status = request.query_params.get('geocode') %}
+        {% if geocode_status == 'ok' %}
+            <div class="geocode-banner ok" id="geocodeBanner">
+                <span>✅ <strong>Geocode OK:</strong> Address verified and coordinates saved.</span>
+                <button type="button" class="close-btn" onclick="document.getElementById('geocodeBanner').remove()">✕</button>
+            </div>
+        {% elif geocode_status == 'fail' %}
+            <div class="geocode-banner fail" id="geocodeBanner">
+                <span>⚠️ <strong>Geocode failed:</strong> Address could not be verified. Please check the address spelling.</span>
+                <button type="button" class="close-btn" onclick="document.getElementById('geocodeBanner').remove()">✕</button>
+            </div>
+        {% endif %}
+        <!-- ================================ -->
 
         <!-- 🔥 CONTADOR DE CLIENTES -->
         <div class="customer-count">

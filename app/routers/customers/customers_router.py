@@ -1,4 +1,4 @@
-# PATH: app/routers/customers/customers_router.py | UPDATED: 2026-08-06
+# PATH: app/routers/customers/customers_router.py | UPDATED: 2026-09-11 (auto-geocoding + status)
 import re
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import RedirectResponse, HTMLResponse, JSONResponse
@@ -10,6 +10,10 @@ from decimal import Decimal
 from app.database.database import get_db
 from app.core.template_loader import jinja as templates
 from app.models.customers.customer_model import Customer
+
+# ===== GEOCODING =====
+from app.utils.geocoding import geocode_address
+# =====================
 
 
 router = APIRouter(
@@ -191,6 +195,21 @@ def customers_add(
         tax_exempt_license=tax_exempt_license
     )
 
+    # ===== GEOCODIFICACIÓN AUTOMÁTICA =====
+    geocode_status = "skipped"
+    if address and city and state:
+        full_address = f"{address}, {city}, {state} {zip_code or ''}".strip()
+        coords = geocode_address(full_address)
+        if coords:
+            new_customer.latitude = coords[0]
+            new_customer.longitude = coords[1]
+            geocode_status = "ok"
+            print(f"[GEOCODE OK] '{name}' -> {coords}")
+        else:
+            geocode_status = "fail"
+            print(f"[GEOCODE FAIL] '{name}' -> '{full_address}' (no encontrada)")
+    # ======================================
+
     try:
         db.add(new_customer)
         db.commit()
@@ -201,10 +220,65 @@ def customers_add(
     # ✅ Redirección corregida: usa /estimates/new/ en lugar de /estimates/add/
     if action == "estimate":
         return RedirectResponse(
-            url=f"/estimates/new/{new_customer.id}?origin={origin}",
+            url=f"/estimates/new/{new_customer.id}?origin={origin}&geocode={geocode_status}",
             status_code=303
         )
     elif origin == "call_center":
-        return RedirectResponse(url="/call_center/search", status_code=303)
+        return RedirectResponse(url=f"/call_center/search?geocode={geocode_status}", status_code=303)
     else:
-        return RedirectResponse(url="/customers/list", status_code=303)
+        return RedirectResponse(url=f"/customers/list?geocode={geocode_status}", status_code=303)
+
+
+# ============================================================
+# GEOCODE PENDING CUSTOMERS (admin/manager utility)
+# ============================================================
+@router.get("/geocode-pending")
+def geocode_pending_customers(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    Geocodifica todos los clientes que no tienen coordenadas.
+    Retorna un reporte JSON con cuántos se geocodificaron y cuáles fallaron.
+    """
+    pending = db.query(Customer).filter(
+        or_(Customer.latitude.is_(None), Customer.longitude.is_(None))
+    ).filter(
+        Customer.address.isnot(None),
+        Customer.city.isnot(None),
+        Customer.state.isnot(None)
+    ).all()
+
+    result = {
+        "success": 0,
+        "failed": 0,
+        "skipped": 0,
+        "details": []
+    }
+
+    for c in pending:
+        full_address = f"{c.address}, {c.city}, {c.state} {c.zip_code or ''}".strip()
+        coords = geocode_address(full_address)
+        if coords:
+            c.latitude = coords[0]
+            c.longitude = coords[1]
+            result["success"] += 1
+            result["details"].append({
+                "id": c.id,
+                "name": c.name,
+                "address": full_address,
+                "status": "OK",
+                "coords": coords
+            })
+        else:
+            result["failed"] += 1
+            result["details"].append({
+                "id": c.id,
+                "name": c.name,
+                "address": full_address,
+                "status": "FAILED"
+            })
+
+    db.commit()
+
+    return JSONResponse(result)

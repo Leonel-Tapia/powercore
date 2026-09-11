@@ -1,4 +1,4 @@
-<!-- PATH: app/templates/call_center/callcenter_search.html | UPDATED: 2026-08-03 -->
+<!-- PATH: app/templates/call_center/callcenter_search.html | UPDATED: 2026-09-11 (geocode indicator) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -22,6 +22,25 @@
             background-color: #f8d7da !important;
             border-radius: 6px;
             padding: 6px;
+        }
+
+        /* 🔥 NUEVO: indicador de geocodificación */
+        .geo-badge {
+            font-size: 0.75em;
+            padding: 2px 6px;
+            border-radius: 4px;
+            margin-left: 6px;
+            font-weight: 600;
+        }
+        .geo-badge.ok {
+            background-color: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        .geo-badge.fail {
+            background-color: #fff3cd;
+            color: #856404;
+            border: 1px solid #ffeeba;
         }
     </style>
 </head>
@@ -79,6 +98,11 @@
                         ? 'result-alert'
                         : '';
 
+                    /* 🔥 NUEVO: badge de geocodificación */
+                    const geoBadge = c.has_geocode
+                        ? '<span class="geo-badge ok" title="Address geocoded">📍 Geocoded</span>'
+                        : '<span class="geo-badge fail" title="Address not geocoded yet">⚠️ No geocode</span>';
+
                     return `
                     <div class="card mb-1 shadow-sm border-primary ${alertClass}">
                         <div class="card-body p-1">
@@ -87,6 +111,7 @@
                                     <h6 class="card-title text-primary mb-0">
                                         ${c.name} 
                                         <span class="badge bg-info text-dark ms-2" style="font-size: 0.7em;">${c.mood || ''}</span>
+                                        ${geoBadge}
                                         <small class="text-muted ms-2" style="font-size: 0.8em;">
                                             ${c.phone} | ${c.address || ''}, ${c.city || ''}${createdDateStr}
                                         </small>

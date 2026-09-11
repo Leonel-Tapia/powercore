@@ -1,4 +1,4 @@
-# PATH: app/routers/call_center/callcenter_search.py | UPDATED: 2026-07-20 20:16 MDT
+# PATH: app/routers/call_center/callcenter_search.py | UPDATED: 2026-09-11 (has_geocode flag)
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse
@@ -23,7 +23,8 @@ def search_json(name: str = "", phone: str = "", db: Session = Depends(get_db)):
             "mood": c.mood, 
             "address": c.address, 
             "city": c.city,
-            "created_at": c.created_at.isoformat() if c.created_at else None
+            "created_at": c.created_at.isoformat() if c.created_at else None,
+            "has_geocode": (c.latitude is not None and c.longitude is not None)
         } for c in customers
     ]
 

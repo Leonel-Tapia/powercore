@@ -1,4 +1,4 @@
-# /app/routers/customers/customers_edit_router.py | Updated: 2026-08-03
+# /app/routers/customers/customers_edit_router.py | Updated: 2026-09-11 (auto-geocoding + status + next fix)
 import re
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import RedirectResponse, HTMLResponse
@@ -9,6 +9,10 @@ from decimal import Decimal
 from app.database.database import get_db
 from app.core.template_loader import jinja as templates
 from app.models.customers.customer_model import Customer
+
+# ===== GEOCODING =====
+from app.utils.geocoding import geocode_address
+# =====================
 
 
 router = APIRouter(
@@ -32,6 +36,10 @@ def customers_edit_form(
     if not customer:
         return RedirectResponse("/customers/list", status_code=303)
 
+    # Normalizar next: si viene "None" como string, tratarlo como vacío
+    raw_next = request.query_params.get("next")
+    clean_next = None if raw_next in (None, "", "None") else raw_next
+
     return templates.TemplateResponse(
         request=request,
         name="customers/customers_edit.html",
@@ -39,7 +47,7 @@ def customers_edit_form(
             "customer": customer,
             "origin": origin,
             "estimate_id": estimate_id,
-            "next": request.query_params.get("next")
+            "next": clean_next
         }
     )
 
@@ -168,6 +176,31 @@ def customers_edit(
     customer.tax_exempt_license = tax_exempt_license
     customer.updated_at = datetime.utcnow()
 
+    # ===== GEOCODIFICACIÓN AUTOMÁTICA (RE-GEOCODE SI LA DIRECCIÓN CAMBIÓ) =====
+    geocode_status = "skipped"
+    if address and city and state:
+        full_address = f"{address}, {city}, {state} {zip_code or ''}".strip()
+        
+        # Solo re-geocodificar si la dirección cambió o no hay coordenadas
+        current_address = f"{customer.address or ''}, {customer.city or ''}, {customer.state or ''} {customer.zip_code or ''}".strip()
+        needs_geocode = (
+            customer.latitude is None or 
+            customer.longitude is None or
+            current_address != full_address
+        )
+        
+        if needs_geocode:
+            coords = geocode_address(full_address)
+            if coords:
+                customer.latitude = coords[0]
+                customer.longitude = coords[1]
+                geocode_status = "ok"
+                print(f"[GEOCODE OK] '{name}' -> {coords}")
+            else:
+                geocode_status = "fail"
+                print(f"[GEOCODE FAIL] '{name}' -> '{full_address}' (no encontrada)")
+    # =========================================================================
+
     try:
         db.commit()
     except Exception as e:
@@ -177,13 +210,13 @@ def customers_edit(
     # REDIRECCIÓN LÓGICA FINAL
     if origin in ["estimate", "estimate_edit"]:
         if estimate_id == "new":
-            return RedirectResponse(f"/estimates/new/{customer_id}", status_code=303)
-        return RedirectResponse(f"/estimates/edit/{estimate_id}", status_code=303)
+            return RedirectResponse(f"/estimates/new/{customer_id}?geocode={geocode_status}", status_code=303)
+        return RedirectResponse(f"/estimates/edit/{estimate_id}?geocode={geocode_status}", status_code=303)
 
     # Si viene del Call Center, regresa de inmediato a su pantalla de lookup con el ID exacto
     if origin and ("call_center" in origin or "lookup" in origin):
-        if next:
-            return RedirectResponse(f"/call_center/lookup/{customer_id}?next={next}", status_code=303)
-        return RedirectResponse(f"/call_center/lookup/{customer_id}", status_code=303)
+        if next and next != "None":
+            return RedirectResponse(f"/call_center/lookup/{customer_id}?next={next}&geocode={geocode_status}", status_code=303)
+        return RedirectResponse(f"/call_center/lookup/{customer_id}?geocode={geocode_status}", status_code=303)
 
-    return RedirectResponse("/customers/list", status_code=303)
+    return RedirectResponse(f"/customers/list?geocode={geocode_status}", status_code=303)
