@@ -57,6 +57,13 @@
             border: 1px solid #aaa;
         }
 
+        /* Estilo visual cuando el input está deshabilitado */
+        input[type="text"]:disabled,
+        input[type="password"]:disabled {
+            background-color: #f0f0f0;
+            cursor: not-allowed;
+        }
+
         button {
             width: 100%;
             padding: 12px;
@@ -71,6 +78,16 @@
 
         button:hover {
             background-color: #005fa3;
+        }
+
+        /* Estilo visual cuando el botón está deshabilitado */
+        button:disabled {
+            background-color: #a0a0a0;
+            cursor: not-allowed;
+        }
+
+        button:disabled:hover {
+            background-color: #a0a0a0;
         }
 
         .error-message {
@@ -110,6 +127,9 @@
 <body>
 
     <div class="login-container">
+        <!-- Detecta si la cuenta está deshabilitada para bloquear el formulario -->
+        {% set account_disabled = (error == 'User account is disabled') %}
+
         <form action="/auth/login" method="POST" style="width: 100%;">
             
             <!-- Logo -->
@@ -120,10 +140,10 @@
             <h2>{{company_name}}</h2>
 
             <label>Username</label>
-            <input type="text" name="username" required autocomplete="username">
+            <input type="text" name="username" required autocomplete="username" {% if account_disabled %}disabled{% endif %}>
 
             <label>Password</label>
-            <input type="password" name="password" required autocomplete="current-password">
+            <input type="password" name="password" required autocomplete="current-password" {% if account_disabled %}disabled{% endif %}>
 
             {% if error %}
                 <div class="error-message">
@@ -131,13 +151,13 @@
                 </div>
             {% endif %}
 
-            <button type="submit">Login</button>
+            <button type="submit" {% if account_disabled %}disabled{% endif %}>Login</button>
         </form>
     </div>
 
     <div class="footer-text">
         Project Started: 2025-09-29
-        Demo Version — PowerCore ERP — Developed by Creative Ideas Marketing —Version: 2026.09.11- 1:06 PM
+        Demo Version — PowerCore ERP — Developed by Creative Ideas Marketing —Version: 2026.09.11- 3:49 PM
     </div>
 
 </body>
