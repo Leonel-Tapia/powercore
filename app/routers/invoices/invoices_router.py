@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-10 (fix section 11 - customer relation)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-11 (minutes_per_visit 40 -> 120 in optimize_route)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -1062,7 +1062,7 @@ async def optimize_invoices_route(
             invoices_data,
             origin_coords,
             start_time,
-            minutes_per_visit=40
+            minutes_per_visit=120   # <-- CHANGED 2026-09-11 (antes 40, ahora 120 min = 2h entre paradas)
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al optimizar ruta: {str(e)}")
