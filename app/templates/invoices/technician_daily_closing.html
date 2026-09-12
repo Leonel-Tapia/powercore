@@ -1,0 +1,329 @@
+<!-- RUTA: app/templates/invoices/technician_daily_closing.html | CREADO: 2026-09-12 -->
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Daily Closing - PowerCore</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #f0f2f5;
+            padding: 20px;
+            color: #333;
+        }
+
+        .container {
+            max-width: 1100px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+            padding: 25px 30px;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            border-bottom: 2px solid #0078D4;
+            padding-bottom: 10px;
+            margin-bottom: 15px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header h1 {
+            font-size: 22px;
+            color: #0078D4;
+        }
+
+        .header .meta {
+            font-size: 13px;
+            color: #555;
+            margin-top: 4px;
+        }
+
+        .header .meta strong { color: #0078D4; }
+
+        .header-actions {
+            display: flex;
+            gap: 8px;
+        }
+
+        .btn {
+            border: none;
+            padding: 8px 14px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            text-decoration: none;
+            display: inline-block;
+            font-weight: 600;
+        }
+
+        .btn-primary { background-color: #0078D4; color: white; }
+        .btn-primary:hover { background-color: #005fa3; }
+
+        .btn-secondary { background-color: #6c757d; color: white; }
+        .btn-secondary:hover { background-color: #5a6268; }
+
+        .filters {
+            display: flex;
+            gap: 15px;
+            align-items: center;
+            background: #f8f9fa;
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 18px;
+            flex-wrap: wrap;
+        }
+
+        .filters label {
+            font-size: 13px;
+            font-weight: 600;
+            color: #555;
+        }
+
+        .filters input[type="date"],
+        .filters select {
+            padding: 6px 10px;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            font-size: 13px;
+            font-family: inherit;
+        }
+
+        .filters button {
+            padding: 6px 14px;
+            background: #0078D4;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            font-size: 13px;
+            cursor: pointer;
+            font-weight: 600;
+        }
+
+        .filters button:hover { background: #005fa3; }
+
+        .section-title {
+            font-size: 16px;
+            font-weight: 600;
+            padding: 8px 0 6px 0;
+            border-bottom: 2px solid #e0e0e0;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+        }
+
+        .table-wrapper {
+            border: 1px solid #e0e0e0;
+            border-radius: 4px;
+            overflow: hidden;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+
+        thead th {
+            background-color: #0078D4;
+            color: white;
+            padding: 8px 10px;
+            text-align: left;
+            font-weight: 600;
+            white-space: nowrap;
+        }
+
+        tbody td {
+            padding: 6px 10px;
+            border-bottom: 1px solid #e8e8e8;
+            vertical-align: middle;
+        }
+
+        tbody tr:hover { background-color: #f5f8fc; }
+        tbody tr:last-child td { border-bottom: none; }
+
+        .badge {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 11px;
+            font-weight: 600;
+        }
+
+        .badge-DEPOSITED { background-color: #e8f5e9; color: #1b5e20; }
+        .badge-PENDING { background-color: #fff8e1; color: #f57f17; }
+
+        .empty-state {
+            text-align: center;
+            padding: 30px;
+            color: #999;
+            font-style: italic;
+            font-size: 14px;
+        }
+
+        .totals-box {
+            background: #f8f9fa;
+            border: 2px solid #0078D4;
+            border-radius: 8px;
+            padding: 15px 20px;
+            margin-top: 10px;
+        }
+
+        .totals-box h3 {
+            font-size: 15px;
+            color: #0078D4;
+            margin-bottom: 12px;
+            border-bottom: 1px solid #d0e0f0;
+            padding-bottom: 6px;
+        }
+
+        .totals-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 10px 20px;
+        }
+
+        .total-row {
+            display: flex;
+            justify-content: space-between;
+            font-size: 14px;
+            padding: 4px 0;
+        }
+
+        .total-row .label { color: #555; }
+        .total-row .value { font-weight: 600; color: #333; }
+
+        .grand-total {
+            grid-column: 1 / -1;
+            display: flex;
+            justify-content: space-between;
+            padding: 12px 0 4px 0;
+            margin-top: 10px;
+            border-top: 2px solid #0078D4;
+            font-size: 18px;
+            font-weight: 700;
+            color: #0078D4;
+        }
+
+        @media print {
+            body { background: white; padding: 0; }
+            .container { box-shadow: none; border-radius: 0; padding: 15px; }
+            .no-print { display: none !important; }
+        }
+
+        @media (max-width: 768px) {
+            .container { padding: 15px; }
+            .header { flex-direction: column; align-items: flex-start; }
+            thead th, tbody td { padding: 5px 6px; font-size: 12px; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <!-- HEADER -->
+        <div class="header">
+            <div>
+                <h1>📊 Daily Closing Report</h1>
+                <div class="meta">
+                    <strong>Technician:</strong> {{ technician_name }}
+                    &nbsp;|&nbsp;
+                    <strong>Date:</strong> {{ target_date.strftime('%m/%d/%Y') }}
+                    &nbsp;|&nbsp;
+                    <strong>Service:</strong> {{ service_type }}
+                </div>
+            </div>
+            <div class="header-actions no-print">
+                <button type="button" class="btn btn-primary" onclick="window.print()">🖨 Print</button>
+                <a href="/technician/dashboard" class="btn btn-secondary">⬅ Back to Dashboard</a>
+            </div>
+        </div>
+
+        <!-- FILTROS -->
+        <form method="get" action="/technician/daily-closing" class="filters no-print">
+            <label for="selected_date">Date:</label>
+            <input type="date" id="selected_date" name="selected_date"
+                   value="{{ selected_date }}"
+                   max="{{ today.strftime('%Y-%m-%d') }}">
+
+            <label for="service_type">Service Type:</label>
+            <select id="service_type" name="service_type">
+                <option value="MOVIL" {% if service_type == 'MOVIL' %}selected{% endif %}>Mobile</option>
+                <option value="SHOP" {% if service_type == 'SHOP' %}selected{% endif %}>Shop</option>
+            </select>
+
+            <button type="submit">Apply</button>
+        </form>
+
+        <!-- TABLA DE PAGOS -->
+        <div class="section-title">
+            <span>💵 Payments Received</span>
+            <span style="font-size:12px; color:#777; font-weight:400;">{{ payments|length }} payment{{ 's' if payments|length != 1 else '' }}</span>
+        </div>
+
+        {% if payments %}
+            <div class="table-wrapper">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Invoice #</th>
+                            <th>Customer</th>
+                            <th>Method</th>
+                            <th>Amount</th>
+                            <th>Status</th>
+                            <th>Reference</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for p in payments %}
+                            <tr>
+                                <td>#{{ p.invoice_id }}</td>
+                                <td>{{ p.customer_name or 'N/A' }}</td>
+                                <td>{{ method_labels.get((p.payment_type or 'OTHER')|upper, p.payment_type) }}</td>
+                                <td>${{ "%.2f"|format(p.amount or 0) }}</td>
+                                <td>
+                                    <span class="badge badge-{{ p.payment_status }}">{{ p.payment_status }}</span>
+                                </td>
+                                <td>{{ p.reference or '—' }}</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="table-wrapper">
+                <div class="empty-state">
+                    No payments recorded for this date.
+                </div>
+            </div>
+        {% endif %}
+
+        <!-- TOTALES POR MÉTODO -->
+        <div class="totals-box">
+            <h3>💰 Totals by Payment Method</h3>
+            <div class="totals-grid">
+                {% for method in method_order %}
+                    <div class="total-row">
+                        <span class="label">{{ method_labels.get(method, method) }}:</span>
+                        <span class="value">${{ "%.2f"|format(totals_by_method.get(method, 0)) }}</span>
+                    </div>
+                {% endfor %}
+                <div class="grand-total">
+                    <span>GRAND TOTAL:</span>
+                    <span>${{ "%.2f"|format(grand_total) }}</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+</body>
+</html>

@@ -1,4 +1,4 @@
-<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-08 (removed email, kept PDF download) -->
+<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-12 (read-only for non-admin in PAID/VOID) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +69,7 @@
         .badge-status-pending { background-color: #f0ad4e; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-paid { background-color: #28a745; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-void { background-color: #dc3545; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
+        .badge-readonly { background-color: #ffc107; color: #212529; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
 
         .info-grid {
             display: grid;
@@ -274,6 +275,14 @@
             color: white;
         }
 
+        /* CAMBIO 2026-09-12: estilo para modo solo lectura */
+        .readonly-mode input:disabled,
+        .readonly-mode select:disabled,
+        .readonly-mode textarea:disabled {
+            background-color: #f0f0f0 !important;
+            color: #555 !important;
+        }
+
         @media print {
             .no-print { display: none !important; }
             #footer-fixed { display: none !important; }
@@ -300,6 +309,9 @@
 <body>
 <div class="container-fluid mt-2">
 
+    <!-- CAMBIO 2026-09-12: modo solo lectura para no-admin en PAID/VOID -->
+    {% set readonly = (invoice.status in ['PAID', 'VOID'] and user_role != 'admin') %}
+
     <!-- ============================================================ -->
     <!-- BANNER PRINT PREVIEW (solo visible cuando print=true) -->
     <!-- ============================================================ -->
@@ -325,6 +337,9 @@
                 <span class="badge {% if invoice.status == 'PAID' %}badge-status-paid{% elif invoice.status == 'VOID' %}badge-status-void{% else %}badge-status-pending{% endif %}">
                     Status: {{ invoice.status or 'PENDING' }}
                 </span>
+                {% if readonly %}
+                    <span class="badge badge-readonly">🔒 Read-Only Mode</span>
+                {% endif %}
                 {% if invoice.estimate_id %}
                     <span class="badge bg-light text-dark px-2 py-1" style="font-size: 0.7rem;">
                         Est #: {{ invoice.estimate_id }}
@@ -350,7 +365,7 @@
     </div>
 
     <!-- FORMULARIO PRINCIPAL -->
-    <form id="invoice-form" action="/invoices/update/{{ invoice.id }}" method="POST">
+    <form id="invoice-form" action="/invoices/update/{{ invoice.id }}" method="POST" class="{% if readonly %}readonly-mode{% endif %}">
         <input type="hidden" name="invoice_id" value="{{ invoice.id }}">
         <input type="hidden" name="customer_id" value="{{ customer.id if customer else invoice.customer_id }}">
         {% if return_url and return_url != "None" %}
@@ -369,7 +384,7 @@
             <div class="col-md-6 offset-md-6">
                 <div class="d-flex align-items-center justify-content-end" style="gap: 10px; background: #f0f8ff; padding: 6px 12px; border-radius: 4px; border: 1px solid #0d6e6e;">
                     <strong style="font-size:0.8rem;">Assign Technician:</strong>
-                    <select name="technician_id" class="form-select form-select-sm" style="width:auto; min-width:150px; font-size:0.8rem; height:30px;">
+                    <select name="technician_id" class="form-select form-select-sm" style="width:auto; min-width:150px; font-size:0.8rem; height:30px;" {% if readonly %}disabled{% endif %}>
                         <option value="">Unassigned</option>
                         {% for tech in technicians %}
                             <option value="{{ tech.id }}" {% if invoice.technician_id == tech.id %}selected{% endif %}>
@@ -377,7 +392,9 @@
                             </option>
                         {% endfor %}
                     </select>
-                    <small class="text-muted" style="font-size:0.65rem;">(select and Update)</small>
+                    {% if not readonly %}
+                        <small class="text-muted" style="font-size:0.65rem;">(select and Update)</small>
+                    {% endif %}
                 </div>
             </div>
         </div>
@@ -396,15 +413,19 @@
                             <span style="font-size: 0.85rem;">{{ customer.phone }} | {{ customer.language }}</span><br>
                             <span style="font-size: 0.85rem;">Mood: {{ customer.mood }}</span>
                             <div class="mt-1">
-                                <a href="/customers/edit/{{ customer.id }}?origin=invoice_view&invoice_id={{ invoice.id }}&next={{ next }}" 
-                                   class="btn btn-sm btn-warning text-dark fw-bold" style="font-size: 0.7rem; padding: 2px 8px;">Edit</a>
+                                {% if not readonly %}
+                                    <a href="/customers/edit/{{ customer.id }}?origin=invoice_view&invoice_id={{ invoice.id }}&next={{ next }}" 
+                                       class="btn btn-sm btn-warning text-dark fw-bold" style="font-size: 0.7rem; padding: 2px 8px;">Edit</a>
+                                {% endif %}
                                 <a href="https://www.google.com/maps/search/?api=1&query={{ customer.address | urlencode }}"
                                    target="_blank"
                                    class="btn btn-sm btn-outline-secondary" style="font-size: 0.7rem; padding: 2px 8px;">Map</a>
-                                <button type="button"
-                                        class="btn btn-sm"
-                                        style="background-color:#0d6e6e;color:white;font-size:0.7rem;padding:2px 8px;border:none;"
-                                        onclick="openAltCustomerModal()">ALT</button>
+                                {% if not readonly %}
+                                    <button type="button"
+                                            class="btn btn-sm"
+                                            style="background-color:#0d6e6e;color:white;font-size:0.7rem;padding:2px 8px;border:none;"
+                                            onclick="openAltCustomerModal()">ALT</button>
+                                {% endif %}
                             </div>
                         {% else %}
                             <span class="text-muted">Customer not available</span>
@@ -420,13 +441,15 @@
                             <input type="text" name="vehicle_vin" class="form-control form-control-sm" maxlength="17"
                                    value="{{ invoice.vehicle_vin or '' }}" placeholder="Enter VIN"
                                    style="font-size:0.85rem;height:28px;"
-                                   oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')">
+                                   oninput="this.value = this.value.toUpperCase().replace(/[^A-Z0-9]/g, '')"
+                                   {% if readonly %}disabled{% endif %}>
                         </div>
                         <div class="vehicle-field">
                             <span class="field-label">Year:</span>
                             <input list="years-list" id="year_input" class="form-control form-control-sm" placeholder="Select Year"
                                    style="font-size:0.85rem;height:28px;"
-                                   value="{% if invoice and invoice.vehicle_year_id %}{% for y in years %}{% if y.id == invoice.vehicle_year_id %}{{ y.year }}{% endif %}{% endfor %}{% endif %}">
+                                   value="{% if invoice and invoice.vehicle_year_id %}{% for y in years %}{% if y.id == invoice.vehicle_year_id %}{{ y.year }}{% endif %}{% endfor %}{% endif %}"
+                                   {% if readonly %}disabled{% endif %}>
                             <input type="hidden" name="vehicle_year_id" id="vehicle_year_id" 
                                    value="{{ invoice.vehicle_year_id or '' }}">
                             <datalist id="years-list">
@@ -439,14 +462,16 @@
                             <span class="field-label">Make:</span>
                             <input list="makes-list" name="vehicle_make" id="make-input" class="form-control form-control-sm"
                                    placeholder="Select Make" style="font-size:0.85rem;height:28px;"
-                                   value="{{ invoice.vehicle_make or '' }}">
+                                   value="{{ invoice.vehicle_make or '' }}"
+                                   {% if readonly %}disabled{% endif %}>
                             <datalist id="makes-list"></datalist>
                         </div>
                         <div class="vehicle-field">
                             <span class="field-label">Model:</span>
                             <input list="models-list" name="vehicle_model" id="model-input" class="form-control form-control-sm"
                                    placeholder="Select Model" style="font-size:0.85rem;height:28px;"
-                                   value="{{ invoice.vehicle_model or '' }}">
+                                   value="{{ invoice.vehicle_model or '' }}"
+                                   {% if readonly %}disabled{% endif %}>
                             <datalist id="models-list"></datalist>
                         </div>
                     </div>
@@ -459,7 +484,8 @@
                             <input type="date" id="appointment-date" name="estimated_appointment_date"
                                    class="form-control form-control-sm border-info" style="height:28px; font-size:0.85rem; background-color: #eafafa;"
                                    value="{{ invoice.estimated_appointment_date or '' }}"
-                                   onchange="updateDayName()">
+                                   onchange="updateDayName()"
+                                   {% if readonly %}disabled{% endif %}>
                             <span id="day-of-week" class="fw-bold text-dark" style="font-size:0.75rem;"></span>
                         </div>
                         <div class="mt-1">
@@ -478,14 +504,14 @@
                     <div class="value">
                         <div class="row g-1">
                             <div class="col-6">
-                                <select name="service_type" id="service_type" class="form-control form-control-sm" style="height:28px; font-size:0.85rem;" onchange="updateTotals()">
+                                <select name="service_type" id="service_type" class="form-control form-control-sm" style="height:28px; font-size:0.85rem;" onchange="updateTotals()" {% if readonly %}disabled{% endif %}>
                                     <option value="">-- Select --</option>
                                     <option value="SHOP" {% if invoice.service_type == 'SHOP' %}selected{% endif %}>SHOP</option>
                                     <option value="MOVIL" {% if invoice.service_type == 'MOVIL' %}selected{% endif %}>MOVIL</option>
                                 </select>
                             </div>
                             <div class="col-6">
-                                <select name="status" id="invoice_status" class="form-control form-control-sm" style="height:28px; font-size:0.85rem;">
+                                <select name="status" id="invoice_status" class="form-control form-control-sm" style="height:28px; font-size:0.85rem;" {% if readonly %}disabled{% endif %}>
                                     <option value="PENDING" {% if invoice.status == 'PENDING' %}selected{% endif %}>PENDING</option>
                                     <option value="PAID" {% if invoice.status == 'PAID' %}selected{% endif %}>PAID</option>
                                     <option value="VOID" {% if invoice.status == 'VOID' %}selected{% endif %}>VOID</option>
@@ -497,12 +523,14 @@
                                     <label style="font-size:0.85rem;">
                                         <input type="radio" name="mobile_fee_override" value="true"
                                                {% if invoice.mobile_fee_override %}checked{% endif %}
-                                               onchange="updateTotals()"> TRUE
+                                               onchange="updateTotals()"
+                                               {% if readonly %}disabled{% endif %}> TRUE
                                     </label>
                                     <label style="font-size:0.85rem;">
                                         <input type="radio" name="mobile_fee_override" value="false"
                                                {% if not invoice.mobile_fee_override %}checked{% endif %}
-                                               onchange="updateTotals()"> FALSE
+                                               onchange="updateTotals()"
+                                               {% if readonly %}disabled{% endif %}> FALSE
                                     </label>
                                 </div>
                                 <input type="hidden" id="special_discount" name="special_discount"
@@ -538,21 +566,21 @@
                     {% if invoice_items %}
                         {% for item in invoice_items %}
                         <tr class="part-row">
-                            <td><input list="parts-list" name="product_name[]" class="form-control form-control-sm part-input" value="{{ item.product_name or '' }}"></td>
-                            <td><input type="text" name="description[]" class="form-control form-control-sm" value="{{ item.description or '' }}"></td>
-                            <td><input type="number" name="quantity[]" class="form-control form-control-sm" value="{{ item.quantity or 1 }}" min="1" onchange="validateCell(this); updateTotals()"></td>
-                            <td><input type="number" name="cost[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.cost or 0.00 }}" onchange="validateCell(this); updateTotals()"></td>
-                            <td><input type="number" name="price[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.price or 0.00 }}" onchange="validateCell(this); recalculateTax(this); updateTotals()"></td>
-                            <td class="text-center"><input type="checkbox" name="is_taxable[]" {% if item.is_taxable %}checked{% endif %} onchange="recalculateTax(this); updateTotals();"></td>
+                            <td><input list="parts-list" name="product_name[]" class="form-control form-control-sm part-input" value="{{ item.product_name or '' }}" {% if readonly %}disabled{% endif %}></td>
+                            <td><input type="text" name="description[]" class="form-control form-control-sm" value="{{ item.description or '' }}" {% if readonly %}disabled{% endif %}></td>
+                            <td><input type="number" name="quantity[]" class="form-control form-control-sm" value="{{ item.quantity or 1 }}" min="1" onchange="validateCell(this); updateTotals()" {% if readonly %}disabled{% endif %}></td>
+                            <td><input type="number" name="cost[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.cost or 0.00 }}" onchange="validateCell(this); updateTotals()" {% if readonly %}disabled{% endif %}></td>
+                            <td><input type="number" name="price[]" class="form-control form-control-sm" step="0.01" min="0" value="{{ item.price or 0.00 }}" onchange="validateCell(this); recalculateTax(this); updateTotals()" {% if readonly %}disabled{% endif %}></td>
+                            <td class="text-center"><input type="checkbox" name="is_taxable[]" {% if item.is_taxable %}checked{% endif %} onchange="recalculateTax(this); updateTotals();" {% if readonly %}disabled{% endif %}></td>
                             <td><input type="number" name="tax_amount[]" class="form-control form-control-sm" step="0.01" value="{{ item.tax_amount or 0.00 }}" readonly></td>
-                            <td class="text-center"><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)">X</button></td>
+                            <td class="text-center"><button type="button" class="btn btn-sm btn-danger" onclick="removeRow(this)" {% if readonly %}disabled{% endif %}>X</button></td>
                         </tr>
                         {% endfor %}
                     {% endif %}
                 </tbody>
             </table>
 
-            <button type="button" class="btn btn-sm btn-info text-dark fw-bold mb-2" onclick="addPartRow()">Add Part</button>
+            <button type="button" class="btn btn-sm btn-info text-dark fw-bold mb-2" onclick="addPartRow()" {% if readonly %}disabled{% endif %}>Add Part</button>
         </div>
 
         <!-- ============================================================ -->
@@ -593,6 +621,7 @@
                 </div>
             </div>
 
+            {% if not readonly %}
             <div class="payment-form-row" style="background: #f8f9fa; border-radius: 4px; border: 1px dashed #0d6e6e;">
                 <div class="payment-form-group">
                     <span class="payment-form-label">Type:</span>
@@ -626,6 +655,7 @@
                     <button type="button" class="btn btn-sm btn-success payment-add-btn" onclick="addPayment()">➕ Add</button>
                 </div>
             </div>
+            {% endif %}
 
             <div style="max-height: 250px; overflow-y: auto; margin-top: 4px;">
                 <table class="table table-sm table-bordered payment-table" style="font-size:0.75rem;">
@@ -657,14 +687,18 @@
                                 </td>
                                 <td>{% if payment.fee_amount > 0 %}${{ "%.2f"|format(payment.fee_amount) }}{% else %}-{% endif %}</td>
                                 <td class="payment-actions">
-                                    {% if payment.payment_status in ['PENDING', 'DEPOSITED'] %}
-                                        <button class="btn btn-sm btn-outline-success" onclick="updatePaymentStatus('{{ payment.id }}', 'DEPOSITED')" title="Deposit">Dep</button>
-                                    {% endif %}
-                                    {% if payment.payment_status == 'PENDING' %}
-                                        <button class="btn btn-sm btn-outline-warning" onclick="openRejectModal('{{ payment.id }}', 'REJECTED')" title="Reject">Rej</button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="openRejectModal('{{ payment.id }}', 'BOUNCED')" title="Bounce">Bnc</button>
-                                        <button class="btn btn-sm btn-outline-secondary" onclick="updatePaymentStatus('{{ payment.id }}', 'CANCELLED')" title="Cancel">X</button>
-                                        <button class="btn btn-sm btn-outline-danger" onclick="deletePayment('{{ payment.id }}')" title="Delete">🗑</button>
+                                    {% if readonly %}
+                                        <span class="text-muted" style="font-size:0.65rem;">—</span>
+                                    {% else %}
+                                        {% if payment.payment_status in ['PENDING', 'DEPOSITED'] %}
+                                            <button class="btn btn-sm btn-outline-success" onclick="updatePaymentStatus('{{ payment.id }}', 'DEPOSITED')" title="Deposit">Dep</button>
+                                        {% endif %}
+                                        {% if payment.payment_status == 'PENDING' %}
+                                            <button class="btn btn-sm btn-outline-warning" onclick="openRejectModal('{{ payment.id }}', 'REJECTED')" title="Reject">Rej</button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="openRejectModal('{{ payment.id }}', 'BOUNCED')" title="Bounce">Bnc</button>
+                                            <button class="btn btn-sm btn-outline-secondary" onclick="updatePaymentStatus('{{ payment.id }}', 'CANCELLED')" title="Cancel">X</button>
+                                            <button class="btn btn-sm btn-outline-danger" onclick="deletePayment('{{ payment.id }}')" title="Delete">🗑</button>
+                                        {% endif %}
                                     {% endif %}
                                 </td>
                             </tr>
@@ -700,17 +734,20 @@
                 <label class="small fw-bold text-muted">Labor:</label>
                 <input type="number" step="0.01" min="0" id="labor_cost" name="labor" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
                         value="{{ invoice.labor_cost if invoice.labor_cost is not none else (company.labor_cost if company else '79.99') }}" 
-                        oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()">
+                        oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()"
+                        {% if readonly %}disabled{% endif %}>
 
                 <label class="small fw-bold text-muted">Mat:</label>
                 <input type="number" step="0.01" min="0" id="materials_cost" name="mat" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
                         value="{{ invoice.materials_cost if invoice.materials_cost is not none else (company.materials_cost if company else '19.99') }}" 
-                        oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()">
+                        oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()"
+                        {% if readonly %}disabled{% endif %}>
 
                 <label class="small fw-bold text-muted">Misc:</label>
                 <input type="number" step="0.01" min="0" id="misc_cost" name="misc" class="form-control form-control-sm text-end" style="width:75px; height:26px; padding:2px 5px;" 
                         value="{{ invoice.misc_cost if invoice.misc_cost is not none else (company.misc_cost if company else '0.00') }}" 
-                        oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()">
+                        oninput="if(this.value < 0) this.value = 0;" onchange="updateTotals()"
+                        {% if readonly %}disabled{% endif %}>
             </div>
 
             <div class="d-flex justify-content-between align-items-center" style="gap: 15px;">
@@ -725,9 +762,11 @@
                     <button type="button" class="btn btn-outline-info btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openActivityModal()">
                         📋 Activity
                     </button>
-                    <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openVoidModal()">
-                        Void
-                    </button>
+                    {% if not readonly %}
+                        <button type="button" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openVoidModal()">
+                            Void
+                        </button>
+                    {% endif %}
                     {% if return_url %}
                         <a href="{{ return_url }}" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;">
                             Back
@@ -770,7 +809,7 @@
                             {% endif %}
                         {% endif %}
                     {% endif %}
-                    <button type="submit" class="btn btn-info text-dark fw-bold btn-sm py-1 px-4" id="save-btn">
+                    <button type="submit" class="btn btn-info text-dark fw-bold btn-sm py-1 px-4" id="save-btn" {% if readonly %}disabled{% endif %}>
                         Update Invoice
                     </button>
                 </div>
@@ -916,6 +955,7 @@
                 {% endif %}
             </div>
 
+            {% if not readonly %}
             <div style="display:flex; flex-wrap:wrap; gap:8px; padding:12px; background:#f8f9fa; border-radius:4px; border:1px solid #dee2e6; margin-bottom:10px;">
                 <div style="flex:2; min-width:180px;">
                     <label style="font-size:0.7rem; font-weight:bold; color:#6c757d; display:block; margin-bottom:2px;">Concept</label>
@@ -938,6 +978,7 @@
                 <span style="font-size:0.75rem; font-weight:bold; color:#6c757d; margin-right:8px;">Quick Select:</span>
                 <div id="quickConceptButtons" style="display:flex; flex-wrap:wrap; gap:4px;"></div>
             </div>
+            {% endif %}
 
             <div style="max-height: 250px; overflow-y: auto; border:1px solid #dee2e6; border-radius:4px;">
                 <table style="width:100%; font-size:0.7rem; border-collapse:collapse;">

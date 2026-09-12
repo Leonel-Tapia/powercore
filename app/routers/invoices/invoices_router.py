@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-12 (user_role + is_past_date)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-12 (user_role in view_invoice for read-only mode)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -75,6 +75,9 @@ def view_invoice(
 
     technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
 
+    # CAMBIO 2026-09-12: rol del usuario actual (para modo solo lectura en PAID/VOID)
+    user_role = request.session.get("role", "").strip().lower()
+
     return templates.TemplateResponse(
         request=request,
         name="invoices/invoice_view.html",
@@ -92,7 +95,8 @@ def view_invoice(
             "balance_due": balance_due,
             "activities": activities,
             "technician_name": technician_name,
-            "technicians": technicians
+            "technicians": technicians,
+            "user_role": user_role                          # <-- CAMBIO 2026-09-12
         }
     )
 
