@@ -1,4 +1,4 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-11 (scroll limits) -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-12 (void btn admin-only + disable optimize on past dates) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -154,7 +154,9 @@
                         </select>
                     </div>
                     <div class="col-auto">
-                        <button type="button" id="optimizeRouteBtn" class="btn btn-primary btn-sm py-1 px-3">
+                        <!-- CAMBIO: botón azul deshabilitado cuando la fecha es pasada -->
+                        <button type="button" id="optimizeRouteBtn" class="btn btn-primary btn-sm py-1 px-3"
+                                {% if is_past_date %}disabled{% endif %}>
                             <i class="fas fa-route me-1"></i> Optimize Route by Distance
                         </button>
                     </div>
@@ -163,12 +165,7 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
-                    <div class="col-auto">
-                        <small class="text-muted">
-                            <i class="fas fa-info-circle me-1"></i>
-                            Suggests an optimized order from the base. The original appointment time is NOT changed until you click Apply.
-                        </small>
-                    </div>
+                    <!-- CAMBIO: se eliminó el bloque del texto de ayuda -->
                 </div>
             </div>
         </div>
@@ -311,8 +308,8 @@
                                                     <i class="fas fa-dollar-sign"></i>
                                                 </button>
                                             {% endif %}
-                                            <!-- Void -->
-                                            {% if not is_void %}
+                                            <!-- Void (solo admin) -->
+                                            {% if not is_void and user_role == 'admin' %}
                                                 <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 btn-void" 
                                                         data-invoice-id="{{ invoice.id }}">
                                                     <i class="fas fa-ban"></i>

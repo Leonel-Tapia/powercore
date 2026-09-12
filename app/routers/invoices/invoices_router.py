@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-11 (minutes_per_visit 40 -> 120 in optimize_route)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-12 (user_role + is_past_date)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -795,6 +795,9 @@ def invoices_workshop_view(
     
     technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
     
+    # CAMBIO 2026-09-12: rol del usuario actual (para ocultar botón Void a no-admin)
+    user_role = request.session.get("role", "").strip().lower()
+    
     return templates.TemplateResponse(
         request=request,
         name="call_center/call_center_invoices_workshop.html",
@@ -809,7 +812,9 @@ def invoices_workshop_view(
             "paid_count": paid_count,
             "void_count": void_count,
             "return_url": return_url,
-            "technicians": technicians
+            "technicians": technicians,
+            "is_past_date": target_date < date.today(),   # <-- CAMBIO 2026-09-12
+            "user_role": user_role                          # <-- CAMBIO 2026-09-12
         }
     )
 
