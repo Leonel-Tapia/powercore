@@ -1,4 +1,4 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-12 (void btn admin-only + disable optimize on past dates) -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-13 (disable optimize btn when no invoices) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -154,9 +154,9 @@
                         </select>
                     </div>
                     <div class="col-auto">
-                        <!-- CAMBIO: botón azul deshabilitado cuando la fecha es pasada -->
+                        <!-- CAMBIO 2026-09-13: botón deshabilitado si fecha pasada o no hay facturas -->
                         <button type="button" id="optimizeRouteBtn" class="btn btn-primary btn-sm py-1 px-3"
-                                {% if is_past_date %}disabled{% endif %}>
+                                {% if is_past_date or total_invoices == 0 %}disabled{% endif %}>
                             <i class="fas fa-route me-1"></i> Optimize Route by Distance
                         </button>
                     </div>
@@ -165,7 +165,6 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
-                    <!-- CAMBIO: se eliminó el bloque del texto de ayuda -->
                 </div>
             </div>
         </div>

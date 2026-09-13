@@ -1,4 +1,4 @@
-<!--template:call_center_menu.html 07/26/26 12:03pm-->
+<!--template:call_center_menu.html 07/26/26 12:03pm | Updated 2026-09-13 (2 botones nuevos placeholder)-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,6 +57,24 @@
         a.button:hover {
             background: #0056b3;
         }
+        /* CAMBIO 2026-09-13: botón placeholder (próximamente) */
+        button.button-placeholder {
+            display: block;
+            padding: 12px;
+            background: #e9ecef;
+            color: #6c757d;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            border: 1px dashed #adb5bd;
+            cursor: pointer;
+            font-family: inherit;
+            font-weight: 600;
+        }
+        button.button-placeholder:hover {
+            background: #dee2e6;
+        }
         .placeholder-text {
             color: #6c757d;
             font-style: italic;
@@ -100,7 +118,10 @@
             <div class="menu-links">
                 <!-- Enlace actualizado a la ruta del backend del Call Center -->
                 <a href="/call_center/daily_estimates" class="button">Daily Appointments Pending Confirmation</a>
-                <!-- Future estimate buttons will go here -->
+                <!-- CAMBIO 2026-09-13: botón placeholder (sin funcionalidad) -->
+                <button type="button" class="button-placeholder" onclick="showComingSoon('Estimates Not Done')">
+                    Estimates Not Done
+                </button>
             </div>
         </div>
 
@@ -109,11 +130,22 @@
             <h2>Invoices Control</h2>
             <div class="menu-links">
                 <a href="/invoices/workshop" class="button">Invoices / Workshop</a>
+                <!-- CAMBIO 2026-09-13: botón placeholder (sin funcionalidad) -->
+                <button type="button" class="button-placeholder" onclick="showComingSoon('Invoices Not Done / Void')">
+                    Invoices Not Done / Void
+                </button>
             </div>
         </div>
     </div>
 
     <!-- General Floating Sign Out Button -->
     <a href="/call_center/logout" class="floating-logout">Sign Out</a>
+
+    <!-- CAMBIO 2026-09-13: mensaje para botones placeholder -->
+    <script>
+        function showComingSoon(featureName) {
+            alert(featureName + '\n\nThis feature is under development.\nComing soon.');
+        }
+    </script>
 </body>
 </html>
