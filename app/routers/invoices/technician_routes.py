@@ -1,17 +1,20 @@
 # RUTA: app/routers/invoices/technician_routes.py
 # CREADO: 2026-09-04
-# ACTUALIZADO: 2026-09-12 - Agregado endpoint /daily-closing (reporte de cierre del técnico)
+# ACTUALIZADO: 2026-09-13 - Dashboard: fecha seleccionable + filtro por estimated_appointment_date
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, datetime
 from typing import Optional
+from io import BytesIO
+from xhtml2pdf import pisa
 from app.database.database import get_db
 from app.models.invoices.invoice_model import Invoice
 from app.models.invoices.invoice_payment_model import InvoicePayment
 from app.models.customers.customer_model import Customer
+from app.models.company.company import Company
 from app.core.template_loader import jinja as templates
 
 router = APIRouter(prefix="/technician", tags=["Technician"])
@@ -39,8 +42,58 @@ PAYMENT_METHOD_LABELS = {
 }
 
 
+def _get_daily_closing_data(db: Session, user_id: int, target_date: date, service_type_clean: str):
+    """
+    Función auxiliar: arma los datos del Daily Closing para no duplicar lógica
+    entre el HTML y el PDF.
+    """
+    query = (
+        db.query(
+            InvoicePayment.id,
+            InvoicePayment.invoice_id,
+            InvoicePayment.payment_type,
+            InvoicePayment.amount,
+            InvoicePayment.reference,
+            InvoicePayment.payment_date,
+            InvoicePayment.payment_status,
+            InvoicePayment.created_by,
+            Customer.name.label("customer_name"),
+        )
+        .join(Invoice, InvoicePayment.invoice_id == Invoice.id)
+        .join(Customer, Invoice.customer_id == Customer.id)
+        .filter(InvoicePayment.payment_date == target_date)
+        .filter(Invoice.technician_id == user_id)
+        .filter(InvoicePayment.payment_status.in_(["DEPOSITED", "PENDING"]))
+    )
+
+    if service_type_clean == "SHOP":
+        query = query.filter(Invoice.service_type == "SHOP")
+    else:
+        query = query.filter(Invoice.service_type.in_(["MOVIL", "MOBILE", "Mobile", "mobile", "Movil"]))
+
+    payments = query.order_by(InvoicePayment.id.asc()).all()
+
+    totals_by_method = {m: 0.0 for m in PAYMENT_METHODS_ORDER}
+    for p in payments:
+        method = (p.payment_type or "OTHER").strip().upper()
+        if method not in totals_by_method:
+            totals_by_method[method] = 0.0
+        totals_by_method[method] += float(p.amount or 0)
+
+    grand_total = sum(totals_by_method.values())
+
+    return payments, totals_by_method, grand_total
+
+
+# ============================================================
+# DASHBOARD (con fecha seleccionable)
+# ============================================================
 @router.get("/dashboard", response_class=HTMLResponse)
-def technician_dashboard(request: Request, db: Session = Depends(get_db)):
+def technician_dashboard(
+    request: Request,
+    selected_date: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
     # Verificar que el usuario esté autenticado y sea técnico
     user_id = request.session.get("user_id")
     user_role = request.session.get("role")
@@ -51,10 +104,16 @@ def technician_dashboard(request: Request, db: Session = Depends(get_db)):
     if user_role != "technician":
         return RedirectResponse(url="/company/main_menu", status_code=303)
 
-    # Obtener la fecha actual como objeto Python date
-    today = date.today()
+    # CAMBIO 2026-09-13: fecha seleccionable (default = hoy)
+    if selected_date:
+        try:
+            target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
 
-    # Obtener las citas del día para este técnico con JOIN a customers
+    # CAMBIO 2026-09-13: filtrar por estimated_appointment_date (día de la cita)
     invoices = (
         db.query(
             Invoice.id,
@@ -72,7 +131,7 @@ def technician_dashboard(request: Request, db: Session = Depends(get_db)):
         )
         .join(Customer, Invoice.customer_id == Customer.id)
         .filter(Invoice.technician_id == user_id)
-        .filter(Invoice.date_request == today)
+        .filter(Invoice.estimated_appointment_date == target_date)
         .order_by(Invoice.estimated_appointment_time.asc())
         .all()
     )
@@ -86,7 +145,9 @@ def technician_dashboard(request: Request, db: Session = Depends(get_db)):
         context={
             "technician_name": technician_name,
             "invoices": invoices,
-            "today": today
+            "today": date.today(),
+            "target_date": target_date,                          # <-- CAMBIO 2026-09-13
+            "selected_date": target_date.strftime("%Y-%m-%d"),   # <-- CAMBIO 2026-09-13
         }
     )
 
@@ -128,46 +189,12 @@ def technician_daily_closing(
     # 3. Normalizar tipo de servicio
     service_type_clean = (service_type or "MOVIL").strip().upper()
 
-    # 4. Query: pagos del técnico logueado en la fecha y tipo de servicio indicados
-    query = (
-        db.query(
-            InvoicePayment.id,
-            InvoicePayment.invoice_id,
-            InvoicePayment.payment_type,
-            InvoicePayment.amount,
-            InvoicePayment.reference,
-            InvoicePayment.payment_date,
-            InvoicePayment.payment_status,
-            InvoicePayment.created_by,
-            Customer.name.label("customer_name"),
-        )
-        .join(Invoice, InvoicePayment.invoice_id == Invoice.id)
-        .join(Customer, Invoice.customer_id == Customer.id)
-        .filter(InvoicePayment.payment_date == target_date)
-        .filter(Invoice.technician_id == user_id)
-        .filter(InvoicePayment.payment_status.in_(["DEPOSITED", "PENDING"]))
+    # 4. Obtener datos
+    payments, totals_by_method, grand_total = _get_daily_closing_data(
+        db, user_id, target_date, service_type_clean
     )
 
-    # Filtro por tipo de servicio (MOVIL o SHOP)
-    if service_type_clean == "SHOP":
-        query = query.filter(Invoice.service_type == "SHOP")
-    else:
-        # MOVIL: acepta variantes que existen en la BD
-        query = query.filter(Invoice.service_type.in_(["MOVIL", "MOBILE", "Mobile", "mobile", "Movil"]))
-
-    payments = query.order_by(InvoicePayment.id.asc()).all()
-
-    # 5. Calcular totales por método de pago
-    totals_by_method = {m: 0.0 for m in PAYMENT_METHODS_ORDER}
-    for p in payments:
-        method = (p.payment_type or "OTHER").strip().upper()
-        if method not in totals_by_method:
-            totals_by_method[method] = 0.0
-        totals_by_method[method] += float(p.amount or 0)
-
-    grand_total = sum(totals_by_method.values())
-
-    # 6. Nombre del técnico
+    # 5. Nombre del técnico
     technician_name = request.session.get("user_name", "Technician")
 
     return templates.TemplateResponse(
@@ -184,5 +211,80 @@ def technician_daily_closing(
             "method_labels": PAYMENT_METHOD_LABELS,
             "method_order": PAYMENT_METHODS_ORDER,
             "today": date.today(),
+        }
+    )
+
+
+# ============================================================
+# DAILY CLOSING PDF (descarga directa)
+# ============================================================
+@router.get("/daily-closing/download")
+def technician_daily_closing_pdf(
+    request: Request,
+    selected_date: Optional[str] = None,
+    service_type: Optional[str] = "MOVIL",
+    db: Session = Depends(get_db)
+):
+    """
+    Genera el PDF del Daily Closing y lo devuelve como descarga.
+    Mismos filtros que la vista HTML.
+    """
+    # 1. Validar sesión
+    user_id = request.session.get("user_id")
+    user_role = request.session.get("role")
+
+    if not user_id:
+        return RedirectResponse(url="/auth/login", status_code=303)
+
+    if user_role != "technician":
+        return RedirectResponse(url="/company/main_menu", status_code=303)
+
+    # 2. Parsear fecha
+    if selected_date:
+        try:
+            target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
+        except ValueError:
+            target_date = date.today()
+    else:
+        target_date = date.today()
+
+    # 3. Normalizar tipo de servicio
+    service_type_clean = (service_type or "MOVIL").strip().upper()
+
+    # 4. Obtener datos
+    payments, totals_by_method, grand_total = _get_daily_closing_data(
+        db, user_id, target_date, service_type_clean
+    )
+
+    technician_name = request.session.get("user_name", "Technician")
+
+    # 5. Renderizar el template de PDF
+    html = templates.get_template("invoices/technician_daily_closing_pdf.html").render(
+        {
+            "technician_name": technician_name,
+            "target_date": target_date,
+            "service_type": "SHOP" if service_type_clean == "SHOP" else "MOVIL",
+            "payments": payments,
+            "totals_by_method": totals_by_method,
+            "grand_total": grand_total,
+            "method_labels": PAYMENT_METHOD_LABELS,
+            "method_order": PAYMENT_METHODS_ORDER,
+            "now": datetime.now(),
+        }
+    )
+
+    # 6. Generar PDF en memoria
+    pdf_buffer = BytesIO()
+    pisa.CreatePDF(BytesIO(html.encode("utf-8")), pdf_buffer)
+    pdf_buffer.seek(0)
+
+    # 7. Nombre del archivo
+    filename = f"daily_closing_{target_date.strftime('%Y-%m-%d')}_{service_type_clean}.pdf"
+
+    return Response(
+        content=pdf_buffer.getvalue(),
+        media_type="application/pdf",
+        headers={
+            "Content-Disposition": f"attachment; filename={filename}"
         }
     )

@@ -1,4 +1,4 @@
-<!-- RUTA: app/templates/invoices/technician_daily_closing.html | CREADO: 2026-09-12 -->
+<!-- RUTA: app/templates/invoices/technician_daily_closing.html | ACTUALIZADO: 2026-09-13 -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -66,6 +66,9 @@
 
         .btn-primary { background-color: #0078D4; color: white; }
         .btn-primary:hover { background-color: #005fa3; }
+
+        .btn-success { background-color: #198754; color: white; }
+        .btn-success:hover { background-color: #146c43; }
 
         .btn-secondary { background-color: #6c757d; color: white; }
         .btn-secondary:hover { background-color: #5a6268; }
@@ -214,12 +217,6 @@
             color: #0078D4;
         }
 
-        @media print {
-            body { background: white; padding: 0; }
-            .container { box-shadow: none; border-radius: 0; padding: 15px; }
-            .no-print { display: none !important; }
-        }
-
         @media (max-width: 768px) {
             .container { padding: 15px; }
             .header { flex-direction: column; align-items: flex-start; }
@@ -242,14 +239,26 @@
                     <strong>Service:</strong> {{ service_type }}
                 </div>
             </div>
-            <div class="header-actions no-print">
-                <button type="button" class="btn btn-primary" onclick="window.print()">🖨 Print</button>
-                <a href="/technician/dashboard" class="btn btn-secondary">⬅ Back to Dashboard</a>
+            <div class="header-actions">
+                <!-- CAMBIO 2026-09-13: Print → Download PDF -->
+                <!-- CAMBIO 2026-09-13 v2: se desactiva si no hay pagos -->
+                {% if payments %}
+                    <a href="/technician/daily-closing/download?selected_date={{ selected_date }}&service_type={{ service_type }}"
+                       class="btn btn-success">
+                        ⬇️ Download PDF
+                    </a>
+                {% else %}
+                    <button type="button" class="btn btn-success" disabled
+                            style="opacity: 0.5; cursor: not-allowed;">
+                        ⬇️ Download PDF
+                    </button>
+                {% endif %}
+                <a href="/technician/dashboard?selected_date={{ selected_date }}" class="btn btn-secondary">⬅ Back to Dashboard</a>
             </div>
         </div>
 
         <!-- FILTROS -->
-        <form method="get" action="/technician/daily-closing" class="filters no-print">
+        <form method="get" action="/technician/daily-closing" class="filters">
             <label for="selected_date">Date:</label>
             <input type="date" id="selected_date" name="selected_date"
                    value="{{ selected_date }}"
