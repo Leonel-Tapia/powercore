@@ -1,4 +1,4 @@
-<!--template:call_center_menu.html 07/26/26 12:03pm | Updated 2026-09-13 (2 botones nuevos placeholder)-->
+<!--template:call_center_menu.html | Updated 2026-09-14 (2 nuevos botones Invoices)-->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -57,7 +57,52 @@
         a.button:hover {
             background: #0056b3;
         }
-        /* CAMBIO 2026-09-13: botón placeholder (próximamente) */
+        /* Botón verde para "Done" */
+        a.button-done {
+            display: block;
+            padding: 12px;
+            background: #198754;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        a.button-done:hover {
+            background: #146c43;
+        }
+        /* CAMBIO 2026-09-14: botón índigo para "Not Done" (invoices) */
+        a.button-indigo {
+            display: block;
+            padding: 12px;
+            background: #3f51b5;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        a.button-indigo:hover {
+            background: #283593;
+        }
+        /* CAMBIO 2026-09-14: botón rojo para "Void" */
+        a.button-void {
+            display: block;
+            padding: 12px;
+            background: #b91c1c;
+            color: white;
+            text-align: center;
+            text-decoration: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        a.button-void:hover {
+            background: #7f1d1d;
+        }
+        /* Botón placeholder (próximamente) */
         button.button-placeholder {
             display: block;
             padding: 12px;
@@ -116,12 +161,9 @@
         <div class="container">
             <h2>Estimates Control</h2>
             <div class="menu-links">
-                <!-- Enlace actualizado a la ruta del backend del Call Center -->
                 <a href="/call_center/daily_estimates" class="button">Daily Appointments Pending Confirmation</a>
-                <!-- CAMBIO 2026-09-13: botón placeholder (sin funcionalidad) -->
-                <button type="button" class="button-placeholder" onclick="showComingSoon('Estimates Not Done')">
-                    Estimates Not Done
-                </button>
+                <a href="/call_center/estimates_not_done" class="button">Estimates Not Done</a>
+                <a href="/call_center/estimates_done" class="button-done">Estimates Done</a>
             </div>
         </div>
 
@@ -130,10 +172,9 @@
             <h2>Invoices Control</h2>
             <div class="menu-links">
                 <a href="/invoices/workshop" class="button">Invoices / Workshop</a>
-                <!-- CAMBIO 2026-09-13: botón placeholder (sin funcionalidad) -->
-                <button type="button" class="button-placeholder" onclick="showComingSoon('Invoices Not Done / Void')">
-                    Invoices Not Done / Void
-                </button>
+                <!-- CAMBIO 2026-09-14: 2 botones nuevos con color distintivo -->
+                <a href="/call_center/invoices_not_done" class="button-indigo">Invoices Not Done</a>
+                <a href="/call_center/invoices_void" class="button-void">Invoices Void</a>
             </div>
         </div>
     </div>
@@ -141,7 +182,6 @@
     <!-- General Floating Sign Out Button -->
     <a href="/call_center/logout" class="floating-logout">Sign Out</a>
 
-    <!-- CAMBIO 2026-09-13: mensaje para botones placeholder -->
     <script>
         function showComingSoon(featureName) {
             alert(featureName + '\n\nThis feature is under development.\nComing soon.');

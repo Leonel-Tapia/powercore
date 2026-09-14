@@ -15,6 +15,7 @@ from app.models.customers.customer_model import Customer
 from app.models.estimates.estimate_model import Estimate
 from app.models.inventory.year_model import Year
 from app.models.invoices.invoice_model import Invoice, InvoiceItem
+from app.models.company.user import User
 
 router = APIRouter(prefix="/call_center", tags=["call_center"])
 
@@ -440,4 +441,525 @@ def confirm_appointment_modal(
     return RedirectResponse(
         url=f"/call_center/daily_estimates?selected_date={target_date_str}&service_type=all",
         status_code=303,
+    )
+
+# ============================================================
+# 5. ESTIMATES NOT DONE (reporte de no trabajados)
+# ============================================================
+@router.get("/estimates_not_done", response_class=HTMLResponse)
+def estimates_not_done_view(
+    request: Request,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    service_type: Optional[str] = "all",
+    db: Session = Depends(get_db),
+):
+    """
+    Reporte de estimados NO trabajados (status != Confirmed).
+    Rango de fechas configurable (From / To).
+    Agrupado por día para facilitar la revisión.
+    """
+    # 1. Parsear rango de fechas (default: últimos 7 días)
+    if from_date:
+        try:
+            start_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+        except ValueError:
+            start_date = date.today() - timedelta(days=7)
+    else:
+        start_date = date.today() - timedelta(days=7)
+
+    if to_date:
+        try:
+            end_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+        except ValueError:
+            end_date = date.today()
+    else:
+        end_date = date.today()
+
+    # Asegurar que start <= end
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    # 2. Query base: NO Confirmados en el rango
+    base_query = (
+        db.query(Estimate, Customer, Year)
+        .outerjoin(Customer, Estimate.customer_id == Customer.id)
+        .outerjoin(Year, Estimate.vehicle_year_id == Year.id)
+        .filter(Estimate.estimated_appointment_date >= start_date)
+        .filter(Estimate.estimated_appointment_date <= end_date)
+        .filter(Estimate.status != "Confirmed")
+    )
+
+    # 3. Filtro por tipo de servicio
+    if service_type and service_type != "all":
+        st_lower = service_type.lower()
+        if st_lower in ["movil", "mobile"]:
+            base_query = base_query.filter(
+                or_(
+                    func.lower(Estimate.service_type) == "mobile",
+                    func.lower(Estimate.service_type) == "movil",
+                )
+            )
+        elif st_lower == "shop":
+            base_query = base_query.filter(
+                func.lower(Estimate.service_type) == "shop"
+            )
+
+    results = base_query.order_by(
+        Estimate.estimated_appointment_date.desc(),
+        Estimate.estimated_appointment_time.asc(),
+    ).all()
+
+    # 4. Contadores globales (antes del filtro de tipo)
+    all_results = (
+        db.query(Estimate)
+        .filter(Estimate.estimated_appointment_date >= start_date)
+        .filter(Estimate.estimated_appointment_date <= end_date)
+        .filter(Estimate.status != "Confirmed")
+        .all()
+    )
+    total_count = len(all_results)
+    shop_count = sum(
+        1 for e in all_results
+        if e.service_type and e.service_type.lower() == "shop"
+    )
+    mobile_count = sum(
+        1 for e in all_results
+        if e.service_type and e.service_type.lower() in ["mobile", "movil"]
+    )
+
+    # 5. Agrupar por día
+    grouped = {}
+    for estimate, customer, vehicle_year in results:
+        d = estimate.estimated_appointment_date
+        if d not in grouped:
+            grouped[d] = []
+
+        # Resolver customer si no vino en el JOIN
+        resolved_customer = customer
+        if not resolved_customer and getattr(estimate, "customer_id", None):
+            resolved_customer = (
+                db.query(Customer).filter(Customer.id == estimate.customer_id).first()
+            )
+
+        customer_name = "Unknown"
+        if resolved_customer and getattr(resolved_customer, "name", None):
+            customer_name = resolved_customer.name
+        elif getattr(estimate, "customer_name", None):
+            customer_name = estimate.customer_name
+
+        grouped[d].append({
+            "estimate": estimate,
+            "customer": resolved_customer,
+            "customer_name": customer_name,
+            "formatted_time": format_time_12hr(estimate.estimated_appointment_time),
+            "vehicle_year": vehicle_year,
+        })
+
+    # Ordenar días descendente (día más reciente primero)
+    grouped_list = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+
+    return templates.TemplateResponse(
+        request=request,
+        name="estimates/estimates_not_done.html",
+        context={
+            "grouped_data": grouped_list,
+            "from_date": start_date.strftime("%Y-%m-%d"),
+            "to_date": end_date.strftime("%Y-%m-%d"),
+            "service_type": service_type or "all",
+            "total_count": total_count,
+            "shop_count": shop_count,
+            "mobile_count": mobile_count,
+            "today_date": date.today().strftime("%Y-%m-%d"),
+        },
+    )
+
+# ============================================================
+# 6. ESTIMATES DONE (reporte de confirmados)
+# ============================================================
+@router.get("/estimates_done", response_class=HTMLResponse)
+def estimates_done_view(
+    request: Request,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    service_type: Optional[str] = "all",
+    db: Session = Depends(get_db),
+):
+    """
+    Reporte de estimados CONFIRMADOS (todos, con o sin invoice).
+    Si un estimado fue confirmado pero NO tiene invoice, se muestra con alerta.
+    Rango de fechas configurable. Agrupado por día.
+    """
+    # 1. Parsear rango (default: últimos 7 días)
+    if from_date:
+        try:
+            start_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+        except ValueError:
+            start_date = date.today() - timedelta(days=7)
+    else:
+        start_date = date.today() - timedelta(days=7)
+
+    if to_date:
+        try:
+            end_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+        except ValueError:
+            end_date = date.today()
+    else:
+        end_date = date.today()
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    # 2. Query base: TODOS los confirmados (con o sin invoice)
+    base_query = (
+        db.query(Estimate, Customer, Year)
+        .outerjoin(Customer, Estimate.customer_id == Customer.id)
+        .outerjoin(Year, Estimate.vehicle_year_id == Year.id)
+        .filter(Estimate.estimated_appointment_date >= start_date)
+        .filter(Estimate.estimated_appointment_date <= end_date)
+        .filter(Estimate.status == "Confirmed")
+    )
+
+    # 3. Filtro por tipo de servicio
+    if service_type and service_type != "all":
+        st_lower = service_type.lower()
+        if st_lower in ["movil", "mobile"]:
+            base_query = base_query.filter(
+                or_(
+                    func.lower(Estimate.service_type) == "mobile",
+                    func.lower(Estimate.service_type) == "movil",
+                )
+            )
+        elif st_lower == "shop":
+            base_query = base_query.filter(
+                func.lower(Estimate.service_type) == "shop"
+            )
+
+    results = base_query.order_by(
+        Estimate.estimated_appointment_date.desc(),
+        Estimate.estimated_appointment_time.asc(),
+    ).all()
+
+    # 4. Contadores globales
+    all_results = (
+        db.query(Estimate)
+        .filter(Estimate.estimated_appointment_date >= start_date)
+        .filter(Estimate.estimated_appointment_date <= end_date)
+        .filter(Estimate.status == "Confirmed")
+        .all()
+    )
+    total_count = len(all_results)
+    shop_count = sum(
+        1 for e in all_results
+        if e.service_type and e.service_type.lower() == "shop"
+    )
+    mobile_count = sum(
+        1 for e in all_results
+        if e.service_type and e.service_type.lower() in ["mobile", "movil"]
+    )
+    missing_invoice_count = sum(
+        1 for e in all_results
+        if not e.invoice_number
+    )
+
+    # 5. Agrupar por día + calcular totales
+    grouped = {}
+    grand_total = 0.0
+    for estimate, customer, vehicle_year in results:
+        d = estimate.estimated_appointment_date
+        if d not in grouped:
+            grouped[d] = []
+
+        resolved_customer = customer
+        if not resolved_customer and getattr(estimate, "customer_id", None):
+            resolved_customer = (
+                db.query(Customer).filter(Customer.id == estimate.customer_id).first()
+            )
+
+        customer_name = "Unknown"
+        if resolved_customer and getattr(resolved_customer, "name", None):
+            customer_name = resolved_customer.name
+        elif getattr(estimate, "customer_name", None):
+            customer_name = estimate.customer_name
+
+        est_total = float(estimate.total or 0)
+        grand_total += est_total
+
+        grouped[d].append({
+            "estimate": estimate,
+            "customer": resolved_customer,
+            "customer_name": customer_name,
+            "formatted_time": format_time_12hr(estimate.estimated_appointment_time),
+            "vehicle_year": vehicle_year,
+            "total": est_total,
+        })
+
+    grouped_list = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+
+    # 6. return_url para regresar a esta vista desde el invoice
+    return_url = (
+        f"/call_center/estimates_done"
+        f"?from_date={start_date.strftime('%Y-%m-%d')}"
+        f"&to_date={end_date.strftime('%Y-%m-%d')}"
+        f"&service_type={service_type or 'all'}"
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="estimates/estimates_done.html",
+        context={
+            "grouped_data": grouped_list,
+            "from_date": start_date.strftime("%Y-%m-%d"),
+            "to_date": end_date.strftime("%Y-%m-%d"),
+            "service_type": service_type or "all",
+            "total_count": total_count,
+            "shop_count": shop_count,
+            "mobile_count": mobile_count,
+            "missing_invoice_count": missing_invoice_count,
+            "grand_total": grand_total,
+            "today_date": date.today().strftime("%Y-%m-%d"),
+            "return_url": return_url,
+        },
+    )
+
+# ============================================================
+# 7. INVOICES NOT DONE (PENDING + CANCELLED + NO_SHOW)
+# ============================================================
+@router.get("/invoices_not_done", response_class=HTMLResponse)
+def invoices_not_done_view(
+    request: Request,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    service_type: Optional[str] = "all",
+    db: Session = Depends(get_db),
+):
+    """
+    Reporte de invoices NO trabajados: PENDING + CANCELLED + NO_SHOW.
+    NO incluye VOID (ese tiene su propio reporte).
+    """
+    # 1. Parsear rango
+    if from_date:
+        try:
+            start_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+        except ValueError:
+            start_date = date.today() - timedelta(days=7)
+    else:
+        start_date = date.today() - timedelta(days=7)
+
+    if to_date:
+        try:
+            end_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+        except ValueError:
+            end_date = date.today()
+    else:
+        end_date = date.today()
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    NOT_DONE_STATUSES = ["PENDING", "CANCELLED", "NO_SHOW"]
+
+    # 2. Query base
+    base_query = (
+        db.query(Invoice, Customer, Year, User)
+        .outerjoin(Customer, Invoice.customer_id == Customer.id)
+        .outerjoin(Year, Invoice.vehicle_year_id == Year.id)
+        .outerjoin(User, Invoice.technician_id == User.id)
+        .filter(Invoice.estimated_appointment_date >= start_date)
+        .filter(Invoice.estimated_appointment_date <= end_date)
+        .filter(Invoice.status.in_(NOT_DONE_STATUSES))
+    )
+
+    # 3. Filtro por tipo de servicio
+    if service_type and service_type != "all":
+        st_lower = service_type.lower()
+        if st_lower in ["movil", "mobile"]:
+            base_query = base_query.filter(
+                or_(
+                    func.lower(Invoice.service_type) == "mobile",
+                    func.lower(Invoice.service_type) == "movil",
+                )
+            )
+        elif st_lower == "shop":
+            base_query = base_query.filter(func.lower(Invoice.service_type) == "shop")
+
+    results = base_query.order_by(
+        Invoice.estimated_appointment_date.desc(),
+        Invoice.estimated_appointment_time.asc(),
+    ).all()
+
+    # 4. Contadores globales
+    all_results = (
+        db.query(Invoice)
+        .filter(Invoice.estimated_appointment_date >= start_date)
+        .filter(Invoice.estimated_appointment_date <= end_date)
+        .filter(Invoice.status.in_(NOT_DONE_STATUSES))
+        .all()
+    )
+    total_count = len(all_results)
+    shop_count = sum(1 for i in all_results if i.service_type and i.service_type.lower() == "shop")
+    mobile_count = sum(1 for i in all_results if i.service_type and i.service_type.lower() in ["mobile", "movil"])
+    pending_count = sum(1 for i in all_results if (i.status or "").upper() == "PENDING")
+    cancelled_count = sum(1 for i in all_results if (i.status or "").upper() == "CANCELLED")
+    noshow_count = sum(1 for i in all_results if (i.status or "").upper() == "NO_SHOW")
+
+    # 5. Agrupar por día
+    grouped = {}
+    for invoice, customer, vehicle_year, technician in results:
+        d = invoice.estimated_appointment_date
+        if d not in grouped:
+            grouped[d] = []
+        grouped[d].append({
+            "invoice": invoice,
+            "customer": customer,
+            "vehicle_year": vehicle_year,
+            "technician": technician,
+            "formatted_time": format_time_12hr(invoice.estimated_appointment_time),
+        })
+
+    grouped_list = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+
+    # 6. return_url
+    return_url = (
+        f"/call_center/invoices_not_done"
+        f"?from_date={start_date.strftime('%Y-%m-%d')}"
+        f"&to_date={end_date.strftime('%Y-%m-%d')}"
+        f"&service_type={service_type or 'all'}"
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="invoices/invoices_not_done.html",
+        context={
+            "grouped_data": grouped_list,
+            "from_date": start_date.strftime("%Y-%m-%d"),
+            "to_date": end_date.strftime("%Y-%m-%d"),
+            "service_type": service_type or "all",
+            "total_count": total_count,
+            "shop_count": shop_count,
+            "mobile_count": mobile_count,
+            "pending_count": pending_count,
+            "cancelled_count": cancelled_count,
+            "noshow_count": noshow_count,
+            "today_date": date.today().strftime("%Y-%m-%d"),
+            "return_url": return_url,
+        },
+    )
+
+
+# ============================================================
+# 8. INVOICES VOID (solo anulados)
+# ============================================================
+@router.get("/invoices_void", response_class=HTMLResponse)
+def invoices_void_view(
+    request: Request,
+    from_date: Optional[str] = None,
+    to_date: Optional[str] = None,
+    service_type: Optional[str] = "all",
+    db: Session = Depends(get_db),
+):
+    """
+    Reporte de invoices VOID (anulados). Muestra razón de anulación.
+    """
+    # 1. Parsear rango
+    if from_date:
+        try:
+            start_date = datetime.strptime(from_date, "%Y-%m-%d").date()
+        except ValueError:
+            start_date = date.today() - timedelta(days=7)
+    else:
+        start_date = date.today() - timedelta(days=7)
+
+    if to_date:
+        try:
+            end_date = datetime.strptime(to_date, "%Y-%m-%d").date()
+        except ValueError:
+            end_date = date.today()
+    else:
+        end_date = date.today()
+
+    if start_date > end_date:
+        start_date, end_date = end_date, start_date
+
+    # 2. Query base
+    base_query = (
+        db.query(Invoice, Customer, Year, User)
+        .outerjoin(Customer, Invoice.customer_id == Customer.id)
+        .outerjoin(Year, Invoice.vehicle_year_id == Year.id)
+        .outerjoin(User, Invoice.technician_id == User.id)
+        .filter(Invoice.estimated_appointment_date >= start_date)
+        .filter(Invoice.estimated_appointment_date <= end_date)
+        .filter(func.lower(Invoice.status) == "void")
+    )
+
+    # 3. Filtro por tipo de servicio
+    if service_type and service_type != "all":
+        st_lower = service_type.lower()
+        if st_lower in ["movil", "mobile"]:
+            base_query = base_query.filter(
+                or_(
+                    func.lower(Invoice.service_type) == "mobile",
+                    func.lower(Invoice.service_type) == "movil",
+                )
+            )
+        elif st_lower == "shop":
+            base_query = base_query.filter(func.lower(Invoice.service_type) == "shop")
+
+    results = base_query.order_by(
+        Invoice.estimated_appointment_date.desc(),
+        Invoice.estimated_appointment_time.asc(),
+    ).all()
+
+    # 4. Contadores globales
+    all_results = (
+        db.query(Invoice)
+        .filter(Invoice.estimated_appointment_date >= start_date)
+        .filter(Invoice.estimated_appointment_date <= end_date)
+        .filter(func.lower(Invoice.status) == "void")
+        .all()
+    )
+    total_count = len(all_results)
+    shop_count = sum(1 for i in all_results if i.service_type and i.service_type.lower() == "shop")
+    mobile_count = sum(1 for i in all_results if i.service_type and i.service_type.lower() in ["mobile", "movil"])
+    grand_total = sum(float(i.total or 0) for i in all_results)
+
+    # 5. Agrupar por día
+    grouped = {}
+    for invoice, customer, vehicle_year, technician in results:
+        d = invoice.estimated_appointment_date
+        if d not in grouped:
+            grouped[d] = []
+        grouped[d].append({
+            "invoice": invoice,
+            "customer": customer,
+            "vehicle_year": vehicle_year,
+            "technician": technician,
+            "formatted_time": format_time_12hr(invoice.estimated_appointment_time),
+        })
+
+    grouped_list = sorted(grouped.items(), key=lambda x: x[0], reverse=True)
+
+    # 6. return_url
+    return_url = (
+        f"/call_center/invoices_void"
+        f"?from_date={start_date.strftime('%Y-%m-%d')}"
+        f"&to_date={end_date.strftime('%Y-%m-%d')}"
+        f"&service_type={service_type or 'all'}"
+    )
+
+    return templates.TemplateResponse(
+        request=request,
+        name="invoices/invoices_void.html",
+        context={
+            "grouped_data": grouped_list,
+            "from_date": start_date.strftime("%Y-%m-%d"),
+            "to_date": end_date.strftime("%Y-%m-%d"),
+            "service_type": service_type or "all",
+            "total_count": total_count,
+            "shop_count": shop_count,
+            "mobile_count": mobile_count,
+            "grand_total": grand_total,
+            "today_date": date.today().strftime("%Y-%m-%d"),
+            "return_url": return_url,
+        },
     )

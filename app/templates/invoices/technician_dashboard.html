@@ -1,4 +1,4 @@
-<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-13 (espacios minimizados) -->
+<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-14 (Daily Closing deshabilitado si no hay citas) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -188,6 +188,15 @@
             transform: translateY(-1px);
             box-shadow: 0 4px 10px rgba(46, 125, 50, 0.4);
             color: white;
+        }
+
+        /* CAMBIO 2026-09-14: estilo cuando está deshabilitado */
+        .daily-closing-bar-disabled {
+            background: linear-gradient(90deg, #6c757d 0%, #868e96 100%);
+            box-shadow: 0 2px 6px rgba(108, 117, 125, 0.3);
+            cursor: not-allowed;
+            opacity: 0.7;
+            pointer-events: none;
         }
 
         .daily-closing-bar .icon {
@@ -477,12 +486,21 @@
             </div>
         </div>
 
-        <!-- Botón de Daily Closing -->
-        <a href="/technician/daily-closing?selected_date={{ selected_date }}" class="daily-closing-bar">
-            <span class="icon">📊</span>
-            <span class="label">Daily Closing Report</span>
-            <span class="arrow">→</span>
-        </a>
+        <!-- Botón de Daily Closing (con fecha seleccionada) -->
+        <!-- CAMBIO 2026-09-14: se desactiva si no hay citas -->
+        {% if invoices %}
+            <a href="/technician/daily-closing?selected_date={{ selected_date }}" class="daily-closing-bar">
+                <span class="icon">📊</span>
+                <span class="label">Daily Closing Report</span>
+                <span class="arrow">→</span>
+            </a>
+        {% else %}
+            <div class="daily-closing-bar daily-closing-bar-disabled">
+                <span class="icon">📊</span>
+                <span class="label">Daily Closing Report</span>
+                <span class="arrow">→</span>
+            </div>
+        {% endif %}
 
         <!-- ============================================ -->
         <!-- SHOP SECTION -->

@@ -1,4 +1,4 @@
-<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-12 (read-only for non-admin in PAID/VOID) -->
+<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-14 (CANCELLED + NO_SHOW status) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,6 +69,9 @@
         .badge-status-pending { background-color: #f0ad4e; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-paid { background-color: #28a745; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-void { background-color: #dc3545; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
+        /* CAMBIO 2026-09-14: badges para los 2 status nuevos */
+        .badge-status-cancelled { background-color: #6c757d; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
+        .badge-status-no-show { background-color: #fd7e14; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-readonly { background-color: #ffc107; color: #212529; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
 
         .info-grid {
@@ -300,6 +303,9 @@
             .badge-status-pending { background-color: #f0ad4e !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .badge-status-paid { background-color: #28a745 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .badge-status-void { background-color: #dc3545 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            /* CAMBIO 2026-09-14: nuevos badges en print */
+            .badge-status-cancelled { background-color: #6c757d !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+            .badge-status-no-show { background-color: #fd7e14 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
             .info-box { border-left: 3px solid #0d6e6e !important; background: #f8f9fa !important; }
             .payment-summary-box { background: #e8f5e9 !important; border-left: 3px solid #28a745 !important; }
             input, select, textarea { border: none !important; background: transparent !important; }
@@ -334,7 +340,8 @@
         <div>
             <h4 class="mb-0 d-flex align-items-center" style="gap: 15px; flex-wrap: wrap;">
                 <span>INVOICE # <span id="invoice-id">{{ invoice.id }}</span></span>
-                <span class="badge {% if invoice.status == 'PAID' %}badge-status-paid{% elif invoice.status == 'VOID' %}badge-status-void{% else %}badge-status-pending{% endif %}">
+                <!-- CAMBIO 2026-09-14: agregados CANCELLED y NO_SHOW al badge del header -->
+                <span class="badge {% if invoice.status == 'PAID' %}badge-status-paid{% elif invoice.status == 'VOID' %}badge-status-void{% elif invoice.status == 'CANCELLED' %}badge-status-cancelled{% elif invoice.status == 'NO_SHOW' %}badge-status-no-show{% else %}badge-status-pending{% endif %}">
                     Status: {{ invoice.status or 'PENDING' }}
                 </span>
                 {% if readonly %}
@@ -511,10 +518,17 @@
                                 </select>
                             </div>
                             <div class="col-6">
+                                <!-- CAMBIO 2026-09-14: CANCELLED y NO_SHOW solo visibles para admin -->
                                 <select name="status" id="invoice_status" class="form-control form-control-sm" style="height:28px; font-size:0.85rem;" {% if readonly %}disabled{% endif %}>
                                     <option value="PENDING" {% if invoice.status == 'PENDING' %}selected{% endif %}>PENDING</option>
                                     <option value="PAID" {% if invoice.status == 'PAID' %}selected{% endif %}>PAID</option>
                                     <option value="VOID" {% if invoice.status == 'VOID' %}selected{% endif %}>VOID</option>
+                                    {% if user_role == 'admin' or invoice.status == 'CANCELLED' %}
+                                        <option value="CANCELLED" {% if invoice.status == 'CANCELLED' %}selected{% endif %}>CANCELLED</option>
+                                    {% endif %}
+                                    {% if user_role == 'admin' or invoice.status == 'NO_SHOW' %}
+                                        <option value="NO_SHOW" {% if invoice.status == 'NO_SHOW' %}selected{% endif %}>NO_SHOW</option>
+                                    {% endif %}
                                 </select>
                             </div>
                             <div class="col-12 mt-1">
