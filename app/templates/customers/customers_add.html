@@ -1,4 +1,4 @@
-<!-- /app/templates/customers/customers_add.html | Updated: 2026-08-06 (Menu button disabled temporarily) -->
+<!-- /app/templates/customers/customers_add.html | Updated: 2026-09-14 (ZIP después de Address) -->
 
 <!DOCTYPE html>
 <html lang="en">
@@ -236,16 +236,17 @@
                     <label>Address <span class="required">*</span></label>
                     <input type="text" name="address" required>
 
+                    <!-- CAMBIO 2026-09-14: ZIP movido arriba de City -->
+                    <label>ZIP Code <span class="required">*</span></label>
+                    <input type="text" id="zip_code" name="zip_code" autocomplete="off" required>
+
+                    <div id="zip_suggestions" class="autocomplete-list"></div>
+
                     <label>City <span class="required">*</span></label>
                     <input type="text" id="city" name="city" required>
 
                     <label>State <span class="required">*</span></label>
                     <input type="text" id="state" name="state" required>
-
-                    <label>ZIP Code <span class="required">*</span></label>
-                    <input type="text" id="zip_code" name="zip_code" autocomplete="off" required>
-
-                    <div id="zip_suggestions" class="autocomplete-list"></div>
 
                     <label>Language</label>
                     <select name="language">

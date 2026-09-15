@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-12 (user_role in view_invoice for read-only mode)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-14 (origin_address from Company)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -75,7 +75,6 @@ def view_invoice(
 
     technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
 
-    # CAMBIO 2026-09-12: rol del usuario actual (para modo solo lectura en PAID/VOID)
     user_role = request.session.get("role", "").strip().lower()
 
     return templates.TemplateResponse(
@@ -96,7 +95,7 @@ def view_invoice(
             "activities": activities,
             "technician_name": technician_name,
             "technicians": technicians,
-            "user_role": user_role                          # <-- CAMBIO 2026-09-12
+            "user_role": user_role
         }
     )
 
@@ -799,8 +798,11 @@ def invoices_workshop_view(
     
     technicians = db.query(User).filter(User.role == 'TECHNICIAN').all()
     
-    # CAMBIO 2026-09-12: rol del usuario actual (para ocultar botón Void a no-admin)
     user_role = request.session.get("role", "").strip().lower()
+    
+    # CAMBIO 2026-09-14: verificar si hay origin_address configurado
+    company = db.query(Company).first()
+    has_origin_address = bool(company and company.origin_address and company.origin_address.strip())
     
     return templates.TemplateResponse(
         request=request,
@@ -817,8 +819,9 @@ def invoices_workshop_view(
             "void_count": void_count,
             "return_url": return_url,
             "technicians": technicians,
-            "is_past_date": target_date < date.today(),   # <-- CAMBIO 2026-09-12
-            "user_role": user_role                          # <-- CAMBIO 2026-09-12
+            "is_past_date": target_date < date.today(),
+            "user_role": user_role,
+            "has_origin_address": has_origin_address  # <-- CAMBIO 2026-09-14
         }
     )
 
@@ -984,7 +987,7 @@ async def optimize_invoices_route(
     db: Session = Depends(get_db)
 ):
     """
-    Calcula la ruta óptima desde la base (ORIGIN_ADDRESS) para las facturas de un día.
+    Calcula la ruta óptima desde la base (Company.origin_address) para las facturas de un día.
     Guarda la hora sugerida en tentative_time SIN modificar estimated_appointment_time.
     """
     # 1. Parsear fecha
@@ -993,7 +996,17 @@ async def optimize_invoices_route(
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido. Usa YYYY-MM-DD")
     
-    # 2. Obtener facturas del día (y técnico si se especifica)
+    # 2. CAMBIO 2026-09-14: obtener origin_address de la BD (Company)
+    company = db.query(Company).first()
+    origin_address = company.origin_address.strip() if company and company.origin_address else ""
+    
+    if not origin_address:
+        raise HTTPException(
+            status_code=400,
+            detail="Origin address not configured. Please set it in Manager → Company → Edit."
+        )
+    
+    # 3. Obtener facturas del día (y técnico si se especifica)
     query = db.query(Invoice)
     query = query.filter(Invoice.estimated_appointment_date == target_date)
     
@@ -1007,13 +1020,12 @@ async def optimize_invoices_route(
             "success": True,
             "message": "No hay facturas para este día",
             "route": [],
-            "origin": os.getenv("ORIGIN_ADDRESS", "5250 N Pecos St, Denver, CO 80221")
+            "origin": origin_address
         }
     
-    # 3. Preparar lista de facturas con coordenadas de cliente
+    # 4. Preparar lista de facturas con coordenadas de cliente
     invoices_data = []
     for inv in invoices:
-        # Obtener customer manualmente (no hay relación en el modelo)
         customer = db.query(Customer).filter(Customer.id == inv.customer_id).first()
         if not customer:
             continue
@@ -1021,7 +1033,6 @@ async def optimize_invoices_route(
         lat = customer.latitude
         lng = customer.longitude
         
-        # Si el cliente no tiene coordenadas, geocodificar ahora
         if lat is None or lng is None:
             if customer.address:
                 coords = geocode_address(f"{customer.address}, {customer.city}, {customer.state} {customer.zip_code}")
@@ -1035,7 +1046,6 @@ async def optimize_invoices_route(
             else:
                 continue
         
-        # Combinar fecha + hora original en un solo datetime (solo referencia)
         original_dt = None
         if inv.estimated_appointment_date and inv.estimated_appointment_time:
             original_dt = datetime.combine(inv.estimated_appointment_date, inv.estimated_appointment_time)
@@ -1057,13 +1067,15 @@ async def optimize_invoices_route(
             "route": []
         }
     
-    # 4. Geocodificar la dirección base
-    origin_address = os.getenv("ORIGIN_ADDRESS", "5250 N Pecos St, Denver, CO 80221")
+    # 5. Geocodificar la dirección base (desde BD)
     origin_coords = geocode_address(origin_address)
     if not origin_coords:
-        origin_coords = (39.7670, -105.0342)
+        raise HTTPException(
+            status_code=400,
+            detail=f"Could not geocode origin address: '{origin_address}'. Please verify it in Manager → Company."
+        )
     
-    # 5. Calcular ruta óptima (hora de salida: 8:00 AM)
+    # 6. Calcular ruta óptima (hora de salida: 8:00 AM)
     start_time = datetime.combine(target_date, datetime.strptime("08:00:00", "%H:%M:%S").time())
     
     try:
@@ -1071,19 +1083,19 @@ async def optimize_invoices_route(
             invoices_data,
             origin_coords,
             start_time,
-            minutes_per_visit=120   # <-- CHANGED 2026-09-11 (antes 40, ahora 120 min = 2h entre paradas)
+            minutes_per_visit=120
         )
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al optimizar ruta: {str(e)}")
     
-    # 6. Guardar tentative_time en cada factura (SIN tocar estimated_appointment_time)
+    # 7. Guardar tentative_time en cada factura
     for item in optimized_route:
         inv = item.get("invoice_obj")
         if inv:
             inv.tentative_time = item["suggested_arrival"]
     db.commit()
     
-    # 7. Formatear respuesta para el frontend
+    # 8. Formatear respuesta
     result = []
     for item in optimized_route:
         result.append({
@@ -1102,7 +1114,7 @@ async def optimize_invoices_route(
         "success": True,
         "origin": origin_address,
         "start_time": "08:00:00",
-        "minutes_per_visit": 40,
+        "minutes_per_visit": 120,
         "route": result,
         "total_invoices": len(result)
     }
@@ -1129,11 +1141,8 @@ async def apply_tentative_time(
         if not invoice.tentative_time:
             raise HTTPException(status_code=400, detail="No tentative time available for this invoice")
         
-        # Copiar fecha y hora
         invoice.estimated_appointment_date = invoice.tentative_time.date()
         invoice.estimated_appointment_time = invoice.tentative_time.time()
-        
-        # Limpiar el tentative_time (ya se aplicó oficialmente)
         invoice.tentative_time = None
         
         db.commit()

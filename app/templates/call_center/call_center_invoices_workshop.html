@@ -1,19 +1,14 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-13 (disable optimize btn when no invoices) -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-14 (fix data-has-origin) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoices / Workshop - PowerCore</title>
-    <!-- Bootstrap CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
-    <!-- ============================================================ -->
-    <!-- SCROLL LIMITS: 3 filas ruta optimizada / 4 filas facturas   -->
-    <!-- ============================================================ -->
     <style>
-        /* Optimized Route: máximo 3 filas visibles */
         .scroll-3-rows {
             max-height: 165px;
             overflow-y: auto;
@@ -26,7 +21,6 @@
             box-shadow: inset 0 -1px 0 #a3cfbb;
         }
 
-        /* Main Invoices Table: máximo 4 filas visibles */
         .scroll-4-rows {
             max-height: 210px;
             overflow-y: auto;
@@ -44,7 +38,6 @@
 <body class="bg-light">
 
     <div class="container-fluid py-2">
-        <!-- Header & Back Button -->
         <div class="d-flex justify-content-between align-items-center mb-2">
             <div>
                 <h3 class="mb-0 fs-5">Invoices / Workshop</h3>
@@ -56,7 +49,6 @@
             </div>
         </div>
 
-        <!-- Date Selector & Quick Filters Card -->
         <div class="card shadow-sm mb-2">
             <div class="card-body bg-white py-2 px-3">
                 <form method="get" action="/invoices/workshop" id="filterForm" class="row align-items-center g-2">
@@ -77,7 +69,6 @@
                         </span>
                     </div>
 
-                    <!-- Quick Date Buttons -->
                     <div class="col-auto">
                         <div class="btn-group btn-group-sm" role="group">
                             <button type="button" class="btn btn-outline-secondary py-1 px-2" onclick="setQuickDate('yesterday')">Yesterday</button>
@@ -86,10 +77,8 @@
                         </div>
                     </div>
 
-                    <!-- Status Filter Buttons -->
                     <div class="col-auto ms-auto">
                         <div class="btn-group btn-group-sm" role="group">
-                            <!-- ALL -->
                             <button type="button"
                                 class="btn {% if status_filter == 'all' or not status_filter %}btn-dark{% else %}btn-outline-dark{% endif %}"
                                 onclick="setStatusFilter('all')">
@@ -97,7 +86,6 @@
                                 All ({{ total_invoices }})
                             </button>
 
-                            <!-- PENDING -->
                             <button type="button"
                                 class="btn {% if status_filter == 'pending' %}btn-warning{% else %}btn-outline-warning{% endif %}"
                                 onclick="setStatusFilter('pending')">
@@ -105,7 +93,6 @@
                                 Pending ({{ pending_count }})
                             </button>
 
-                            <!-- PARTIALLY PAID -->
                             <button type="button"
                                 class="btn {% if status_filter == 'partially_paid' %}btn-info{% else %}btn-outline-info{% endif %}"
                                 onclick="setStatusFilter('partially_paid')">
@@ -113,7 +100,6 @@
                                 Partial ({{ partially_paid_count }})
                             </button>
 
-                            <!-- PAID -->
                             <button type="button"
                                 class="btn {% if status_filter == 'paid' %}btn-success{% else %}btn-outline-success{% endif %}"
                                 onclick="setStatusFilter('paid')">
@@ -121,7 +107,6 @@
                                 Paid ({{ paid_count }})
                             </button>
 
-                            <!-- VOID -->
                             <button type="button"
                                 class="btn {% if status_filter == 'void' %}btn-danger{% else %}btn-outline-danger{% endif %}"
                                 onclick="setStatusFilter('void')">
@@ -134,9 +119,7 @@
             </div>
         </div>
 
-        <!-- ============================================================ -->
         <!-- ROUTE OPTIMIZER TOOLBAR -->
-        <!-- ============================================================ -->
         <div class="card shadow-sm mb-2 border-primary">
             <div class="card-body bg-white py-2 px-3">
                 <div class="row align-items-center g-2">
@@ -154,9 +137,11 @@
                         </select>
                     </div>
                     <div class="col-auto">
-                        <!-- CAMBIO 2026-09-13: botón deshabilitado si fecha pasada o no hay facturas -->
+                        <!-- CAMBIO 2026-09-14: data-has-origin para el JS + disabled si no está configurado -->
                         <button type="button" id="optimizeRouteBtn" class="btn btn-primary btn-sm py-1 px-3"
-                                {% if is_past_date or total_invoices == 0 %}disabled{% endif %}>
+                                data-has-origin="{{ 'true' if has_origin_address else 'false' }}"
+                                {% if is_past_date or total_invoices == 0 or not has_origin_address %}disabled{% endif %}
+                                {% if not has_origin_address %}title="Origin Address not configured. Go to Manager → Company → Edit to set it."{% endif %}>
                             <i class="fas fa-route me-1"></i> Optimize Route by Distance
                         </button>
                     </div>
@@ -165,13 +150,22 @@
                             <span class="visually-hidden">Loading...</span>
                         </div>
                     </div>
+
+                    <!-- CAMBIO 2026-09-14: aviso si origin_address no está configurado -->
+                    {% if not has_origin_address %}
+                    <div class="col-12 mt-1">
+                        <div class="alert alert-warning py-1 px-2 mb-0" style="font-size: 12px;">
+                            <i class="fas fa-exclamation-triangle me-1"></i>
+                            <strong>Origin Address not configured.</strong>
+                            Go to <strong>Manager → Company → Edit</strong> to set the starting point for route optimization.
+                        </div>
+                    </div>
+                    {% endif %}
                 </div>
             </div>
         </div>
 
-        <!-- ============================================================ -->
         <!-- OPTIMIZED ROUTE RESULTS -->
-        <!-- ============================================================ -->
         <div id="optimizationResults" class="card shadow-sm mb-2 border-success" style="display: none;">
             <div class="card-header bg-success text-white py-2 d-flex justify-content-between align-items-center">
                 <div>
@@ -193,7 +187,6 @@
                     <strong>Start:</strong> <span id="startTime"></span> &nbsp;|&nbsp;
                     <strong>Minutes per visit:</strong> <span id="minutesPerVisit"></span>
                 </div>
-                <!-- Aplicado scroll-3-rows: máximo 3 filas visibles -->
                 <div class="table-responsive scroll-3-rows">
                     <table class="table table-sm table-striped table-hover align-middle mb-0 small" id="optimizedRouteTable">
                         <thead class="table-success">
@@ -209,9 +202,7 @@
                                 <th class="text-center text-nowrap">Action</th>
                             </tr>
                         </thead>
-                        <tbody id="routeTableBody">
-                            <!-- Filled by JavaScript -->
-                        </tbody>
+                        <tbody id="routeTableBody"></tbody>
                     </table>
                 </div>
             </div>
@@ -220,7 +211,6 @@
         <!-- Invoices Table Card -->
         <div class="card shadow-sm">
             <div class="card-body p-0">
-                <!-- Aplicado scroll-4-rows: máximo 4 filas visibles -->
                 <div class="table-responsive scroll-4-rows">
                     <table class="table table-hover table-striped table-sm align-middle mb-0 small">
                         <thead class="table-dark">
@@ -293,12 +283,10 @@
                                     </td>
                                     <td class="py-1 text-center">
                                         <div class="d-flex justify-content-center gap-1 flex-wrap">
-                                            <!-- View -->
                                             <a href="/invoices/view/{{ invoice.id }}?return_url={{ return_url }}" 
                                                class="btn btn-sm btn-outline-primary py-0 px-2" title="View">
                                                 <i class="fas fa-eye"></i>
                                             </a>
-                                            <!-- Pay -->
                                             {% if not is_void and status | upper != 'PAID' %}
                                                 <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 btn-pay" 
                                                         data-invoice-id="{{ invoice.id }}"
@@ -307,17 +295,15 @@
                                                     <i class="fas fa-dollar-sign"></i>
                                                 </button>
                                             {% endif %}
-                                            <!-- Void (solo admin) -->
                                             {% if not is_void and user_role == 'admin' %}
                                                 <button type="button" class="btn btn-sm btn-outline-danger py-0 px-2 btn-void" 
                                                         data-invoice-id="{{ invoice.id }}">
                                                     <i class="fas fa-ban"></i>
                                                 </button>
                                             {% endif %}
-                                            <!-- Print -->
-                                            <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2 btn-print" 
-                                                    data-invoice-id="{{ invoice.id }}">
-                                                <i class="fas fa-print"></i>
+                                            <button type="button" class="btn btn-sm btn-outline-success py-0 px-2 btn-print" 
+                                                    data-invoice-id="{{ invoice.id }}" title="Download PDF">
+                                                <i class="fas fa-file-pdf"></i>
                                             </button>
                                         </div>
                                     </td>
@@ -337,9 +323,7 @@
         </div>
     </div>
 
-    <!-- ============================================================ -->
     <!-- MODAL: PAYMENT -->
-    <!-- ============================================================ -->
     <div class="modal fade" id="paymentModal" tabindex="-1" aria-labelledby="paymentModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -396,9 +380,7 @@
         </div>
     </div>
 
-    <!-- ============================================================ -->
     <!-- MODAL: VOID -->
-    <!-- ============================================================ -->
     <div class="modal fade" id="voidModal" tabindex="-1" aria-labelledby="voidModalLabel" aria-hidden="true">
         <div class="modal-dialog">
             <div class="modal-content">
@@ -427,16 +409,9 @@
         </div>
     </div>
 
-    <!-- Bootstrap JS Bundle -->
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 
-    <!-- ============================================================ -->
-    <!-- SCRIPTS -->
-    <!-- ============================================================ -->
     <script>
-        // ============================================================
-        // FILTER FUNCTIONS
-        // ============================================================
         function setStatusFilter(status) {
             document.getElementById('status_filter_input').value = status;
             document.getElementById('filterForm').submit();
@@ -444,12 +419,8 @@
 
         function setQuickDate(target) {
             const d = new Date();
-            
-            if (target === 'yesterday') {
-                d.setDate(d.getDate() - 1);
-            } else if (target === 'tomorrow') {
-                d.setDate(d.getDate() + 1);
-            }
+            if (target === 'yesterday') { d.setDate(d.getDate() - 1); }
+            else if (target === 'tomorrow') { d.setDate(d.getDate() + 1); }
 
             const yyyy = d.getFullYear();
             const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -457,12 +428,9 @@
             const formattedDate = `${yyyy}-${mm}-${dd}`;
 
             document.getElementById("selected_date").value = formattedDate;
-            
-            const form = document.getElementById("filterForm");
-            form.submit();
+            document.getElementById("filterForm").submit();
         }
 
-        // Update day name dynamically when date input changes
         document.getElementById("selected_date").addEventListener("change", function () {
             const dateVal = this.value;
             if (dateVal) {
@@ -472,13 +440,9 @@
                 const dayName = d.toLocaleDateString('en-US', options);
                 document.getElementById("dayNameText").textContent = dayName;
             }
-            const form = document.getElementById("filterForm");
-            form.submit();
+            document.getElementById("filterForm").submit();
         });
 
-        // ============================================================
-        // PAYMENT MODAL
-        // ============================================================
         function openPaymentModal(invoiceId, customerName, invoiceTotal) {
             document.getElementById('payment_invoice_id').value = invoiceId;
             document.getElementById('payment_customer_name').textContent = customerName || 'Unknown';
@@ -495,9 +459,6 @@
             modal.show();
         }
 
-        // ============================================================
-        // VOID MODAL
-        // ============================================================
         function openVoidModal(invoiceId) {
             document.getElementById('void_invoice_id').value = invoiceId;
             document.getElementById('void_reason').value = '';
@@ -506,18 +467,11 @@
             modal.show();
         }
 
-        // ============================================================
-        // PRINT INVOICE
-        // ============================================================
         function printInvoice(invoiceId) {
-            window.open('/invoices/view/' + invoiceId + '?print=true', '_blank');
+            window.location.href = '/invoices/download/' + invoiceId;
         }
 
-        // ============================================================
-        // EVENT LISTENERS PARA BOTONES (data attributes)
-        // ============================================================
         document.addEventListener('DOMContentLoaded', function() {
-            // Botones Pay
             document.querySelectorAll('.btn-pay').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     var invoiceId = this.getAttribute('data-invoice-id');
@@ -527,7 +481,6 @@
                 });
             });
 
-            // Botones Void
             document.querySelectorAll('.btn-void').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     var invoiceId = this.getAttribute('data-invoice-id');
@@ -535,7 +488,6 @@
                 });
             });
 
-            // Botones Print
             document.querySelectorAll('.btn-print').forEach(function(btn) {
                 btn.addEventListener('click', function() {
                     var invoiceId = this.getAttribute('data-invoice-id');
@@ -545,9 +497,6 @@
         });
     </script>
 
-    <!-- ============================================================ -->
-    <!-- PAYMENT FORM SUBMIT (AJAX) -->
-    <!-- ============================================================ -->
     <script>
         document.getElementById('paymentForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -575,9 +524,6 @@
         });
     </script>
 
-    <!-- ============================================================ -->
-    <!-- VOID FORM SUBMIT (AJAX) -->
-    <!-- ============================================================ -->
     <script>
         document.getElementById('voidForm').addEventListener('submit', async function(e) {
             e.preventDefault();
@@ -617,9 +563,6 @@
         });
     </script>
 
-    <!-- ============================================================ -->
-    <!-- ROUTE OPTIMIZER -->
-    <!-- ============================================================ -->
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const optimizeBtn = document.getElementById('optimizeRouteBtn');
@@ -631,7 +574,9 @@
             const dateInput = document.getElementById('selected_date');
             const technicianSelect = document.getElementById('technicianSelect');
 
-            // Guardar copia de la tabla original para poder "Hide"
+            // CAMBIO 2026-09-14: leer valor desde atributo data- del botón (evita errores del linter)
+            const HAS_ORIGIN_ADDRESS = optimizeBtn.dataset.hasOrigin === 'true';
+
             optimizeBtn.addEventListener('click', async function() {
                 const date = dateInput ? dateInput.value : null;
                 if (!date) {
@@ -649,6 +594,13 @@
                     const url = `/invoices/workshop/optimize-route?date=${date}${technicianId ? '&technician_id=' + technicianId : ''}`;
                     const response = await fetch(url, { method: 'POST' });
                     const data = await response.json();
+
+                    // CAMBIO 2026-09-14: manejar errores específicos (ej: origin_address faltante)
+                    if (!response.ok) {
+                        const errMsg = data.detail || data.message || 'Unknown error';
+                        alert('Error: ' + errMsg);
+                        return;
+                    }
 
                     if (!data.success) {
                         alert('Error: ' + (data.message || 'Unknown error'));
@@ -669,7 +621,10 @@
                     alert('An error occurred while optimizing the route.');
                 } finally {
                     loadingSpinner.style.display = 'none';
-                    optimizeBtn.disabled = false;
+                    // CAMBIO 2026-09-14: solo rehabilitar si origin_address está configurado
+                    if (HAS_ORIGIN_ADDRESS) {
+                        optimizeBtn.disabled = false;
+                    }
                 }
             });
 
@@ -741,7 +696,6 @@
                     if (response.ok && data.success) {
                         buttonElement.innerHTML = '<i class="fas fa-check-double me-1"></i> Done';
                         buttonElement.className = 'btn btn-sm btn-secondary py-0 px-2';
-                        // Recargar la página para reflejar el cambio en la tabla principal
                         setTimeout(() => window.location.reload(), 600);
                     } else {
                         alert('Error: ' + (data.detail || data.message || 'Failed to apply time.'));

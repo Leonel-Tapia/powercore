@@ -1,4 +1,4 @@
-<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-14 (CANCELLED + NO_SHOW status) -->
+<!-- Path: app/templates/invoices/invoice_view.html | Updated: 2026-09-14 (removed Print Preview) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -69,7 +69,6 @@
         .badge-status-pending { background-color: #f0ad4e; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-paid { background-color: #28a745; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-void { background-color: #dc3545; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
-        /* CAMBIO 2026-09-14: badges para los 2 status nuevos */
         .badge-status-cancelled { background-color: #6c757d; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-status-no-show { background-color: #fd7e14; color: white; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; }
         .badge-readonly { background-color: #ffc107; color: #212529; padding: 4px 10px; border-radius: 4px; font-size: 0.7rem; font-weight: bold; }
@@ -222,28 +221,6 @@
             padding: 4px 8px;
         }
 
-        .print-preview-banner {
-            background: #0d6e6e;
-            color: white;
-            padding: 8px 15px;
-            border-radius: 4px;
-            margin-bottom: 15px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .print-preview-banner .btn {
-            color: white;
-            border-color: white;
-        }
-        .print-preview-banner .btn:hover {
-            background: white;
-            color: #0d6e6e;
-        }
-        .no-print {
-            display: block !important;
-        }
-
         .activity-badge {
             font-size: 0.65rem;
             padding: 2px 6px;
@@ -278,69 +255,26 @@
             color: white;
         }
 
-        /* CAMBIO 2026-09-12: estilo para modo solo lectura */
+        /* Modo solo lectura para no-admin en PAID/VOID/CANCELLED/NO_SHOW */
         .readonly-mode input:disabled,
         .readonly-mode select:disabled,
         .readonly-mode textarea:disabled {
             background-color: #f0f0f0 !important;
             color: #555 !important;
         }
-
-        @media print {
-            .no-print { display: none !important; }
-            #footer-fixed { display: none !important; }
-            .top-header .text-end { display: none !important; }
-            .btn, .btn-sm, .btn-outline-secondary, .btn-danger, .btn-info { display: none !important; }
-            .print-preview-banner { display: none !important; }
-            a[href]::after { content: none !important; }
-            body { background: white !important; margin: 0; padding: 10px; font-size: 10pt; }
-            .container-fluid { width: 100%; padding: 0; }
-            .section-box { border: 1px solid #ddd !important; box-shadow: none !important; }
-            .section-box .section-title { border-bottom: 1px solid #000 !important; }
-            .table td, .table th { border: 1px solid #000 !important; }
-            .badge { border: 1px solid #000 !important; }
-            .top-header { background: #0d6e6e !important; color: white !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .badge-status-pending { background-color: #f0ad4e !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .badge-status-paid { background-color: #28a745 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .badge-status-void { background-color: #dc3545 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            /* CAMBIO 2026-09-14: nuevos badges en print */
-            .badge-status-cancelled { background-color: #6c757d !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .badge-status-no-show { background-color: #fd7e14 !important; -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
-            .info-box { border-left: 3px solid #0d6e6e !important; background: #f8f9fa !important; }
-            .payment-summary-box { background: #e8f5e9 !important; border-left: 3px solid #28a745 !important; }
-            input, select, textarea { border: none !important; background: transparent !important; }
-        }
     </style>
 </head>
 <body>
 <div class="container-fluid mt-2">
 
-    <!-- CAMBIO 2026-09-12: modo solo lectura para no-admin en PAID/VOID -->
-    {% set readonly = (invoice.status in ['PAID', 'VOID'] and user_role != 'admin') %}
-
-    <!-- ============================================================ -->
-    <!-- BANNER PRINT PREVIEW (solo visible cuando print=true) -->
-    <!-- ============================================================ -->
-    {% if request.query_params.get('print') == 'true' %}
-    <div class="print-preview-banner no-print" style="display:flex !important;">
-        <span><i class="fas fa-print me-2"></i> <strong>Print Preview</strong> - Review your invoice before printing</span>
-        <div>
-            <button type="button" class="btn btn-outline-light btn-sm me-2" onclick="window.print()" style="border-color:white; color:white;">
-                <i class="fas fa-print me-1"></i> Print
-            </button>
-            <button type="button" class="btn btn-outline-light btn-sm" onclick="window.close()" style="border-color:white; color:white;">
-                <i class="fas fa-times me-1"></i> Close
-            </button>
-        </div>
-    </div>
-    {% endif %}
+    <!-- Modo solo lectura para no-admin -->
+    {% set readonly = (invoice.status in ['PAID', 'VOID', 'CANCELLED', 'NO_SHOW'] and user_role != 'admin') %}
 
     <!-- HEADER -->
     <div class="top-header d-flex justify-content-between align-items-center">
         <div>
             <h4 class="mb-0 d-flex align-items-center" style="gap: 15px; flex-wrap: wrap;">
                 <span>INVOICE # <span id="invoice-id">{{ invoice.id }}</span></span>
-                <!-- CAMBIO 2026-09-14: agregados CANCELLED y NO_SHOW al badge del header -->
                 <span class="badge {% if invoice.status == 'PAID' %}badge-status-paid{% elif invoice.status == 'VOID' %}badge-status-void{% elif invoice.status == 'CANCELLED' %}badge-status-cancelled{% elif invoice.status == 'NO_SHOW' %}badge-status-no-show{% else %}badge-status-pending{% endif %}">
                     Status: {{ invoice.status or 'PENDING' }}
                 </span>
@@ -386,7 +320,7 @@
         <input type="hidden" name="alt_phone" id="alt_phone" value="{{ invoice.alt_contact_phone or '' }}">
         <input type="hidden" name="alt_relationship" id="alt_relationship" value="{{ invoice.alt_contact_relation or '' }}">
 
-        <!-- BARRA DE SELECCIÓN DE TÉCNICO (dentro del formulario) -->
+        <!-- BARRA DE SELECCIÓN DE TÉCNICO -->
         <div class="row g-2 mb-2">
             <div class="col-md-6 offset-md-6">
                 <div class="d-flex align-items-center justify-content-end" style="gap: 10px; background: #f0f8ff; padding: 6px 12px; border-radius: 4px; border: 1px solid #0d6e6e;">
@@ -518,7 +452,6 @@
                                 </select>
                             </div>
                             <div class="col-6">
-                                <!-- CAMBIO 2026-09-14: CANCELLED y NO_SHOW solo visibles para admin -->
                                 <select name="status" id="invoice_status" class="form-control form-control-sm" style="height:28px; font-size:0.85rem;" {% if readonly %}disabled{% endif %}>
                                     <option value="PENDING" {% if invoice.status == 'PENDING' %}selected{% endif %}>PENDING</option>
                                     <option value="PAID" {% if invoice.status == 'PAID' %}selected{% endif %}>PAID</option>
@@ -727,7 +660,6 @@
             </div>
         </div>
         <!-- FIN SECCIÓN DE PAGOS -->
-        <!-- ============================================================ -->
 
         <!-- FOOTER FIJO -->
         <div id="footer-fixed" style="
@@ -766,10 +698,7 @@
 
             <div class="d-flex justify-content-between align-items-center" style="gap: 15px;">
                 <div class="d-flex align-items-center" style="gap: 8px;">
-                    <button type="button" class="btn btn-outline-secondary btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="openPrintPreview()">
-                        🖨 Print
-                    </button>
-                    <!-- Botón Download PDF -->
+                    <!-- CAMBIO 2026-09-14: botón Print eliminado -->
                     <button type="button" class="btn btn-outline-success btn-sm py-0 px-2" style="font-size: 0.75rem;" onclick="downloadPDF()">
                         ⬇️ Download PDF
                     </button>
@@ -1475,10 +1404,7 @@ function closeVoidModal() {
     document.getElementById("voidInvoiceModal").style.display = "none";
 }
 
-function openPrintPreview() {
-    const invoiceId = '{{ invoice.id }}';
-    window.open('/invoices/view/' + invoiceId + '?print=true', '_blank', 'width=1024,height=900,scrollbars=yes');
-}
+// CAMBIO 2026-09-14: función openPrintPreview() eliminada (Print deprecado)
 
 function openActivityModal() {
     loadConcepts();

@@ -1,4 +1,4 @@
-<!-- /app/templates/company/company_create.html | Updated: 2026-07-21 -->
+<!-- /app/templates/company/company_create.html | Updated: 2026-09-14 (layout compacto) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,18 +6,18 @@
     <title>{{title}}</title>
 
     <style>
-        body { font-family: Arial, sans-serif; margin: 20px; }
-        
+        body { font-family: Arial, sans-serif; margin: 10px 15px; }
+
         .header-container {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            margin-bottom: 15px;
+            margin-bottom: 8px;
             border-bottom: 1px solid #ddd;
-            padding-bottom: 10px;
+            padding-bottom: 6px;
         }
 
-        h2 { margin: 0; }
+        h2 { margin: 0; font-size: 18px; }
 
         .top-actions {
             display: flex;
@@ -26,12 +26,13 @@
         }
 
         .top-actions button {
-            padding: 6px 14px;
+            padding: 5px 12px;
             cursor: pointer;
             background-color: #0077cc;
             color: white;
             border: none;
             border-radius: 3px;
+            font-size: 13px;
         }
 
         .top-actions button[type="button"] {
@@ -40,32 +41,98 @@
             border: 1px solid #ccc;
         }
 
-        .top-actions button:hover {
-            opacity: 0.9;
-        }
+        .top-actions button:hover { opacity: 0.9; }
 
         .top-link {
             text-decoration: none;
-            font-size: 14px;
+            font-size: 13px;
             color: #0077cc;
-            margin-left: 12px;
+            margin-left: 10px;
+        }
+
+        /* CAMBIO 2026-09-14: bloque Origin Address compacto */
+        .origin-address-box {
+            background: #f0f8ff;
+            border-left: 4px solid #0077cc;
+            padding: 6px 10px;
+            margin-bottom: 8px;
+            border-radius: 4px;
+        }
+
+        .origin-address-box label {
+            font-weight: bold;
+            color: #0077cc;
+            display: block;
+            margin-bottom: 3px;
+            font-size: 12px;
+        }
+
+        .origin-address-box input {
+            padding: 5px 8px !important;
+            font-size: 13px;
+        }
+
+        .origin-address-box small {
+            color: #6c757d;
+            font-size: 11px;
+            display: block;
+            margin-top: 3px;
         }
 
         .grid-container {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
+            gap: 10px;
         }
+
+        .col {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+
+        label {
+            font-size: 12px;
+            font-weight: bold;
+            color: #333;
+            margin-top: 4px;
+            display: block;
+        }
+
+        label:first-child { margin-top: 0; }
 
         input, select, textarea {
             width: 100%;
-            padding: 6px;
+            padding: 4px 6px;
             box-sizing: border-box;
+            font-size: 13px;
+            border: 1px solid #ccc;
+            border-radius: 3px;
         }
 
-        select {
-            background-color: #fff;
-            height: 30px;
+        textarea {
+            resize: vertical;
+            font-family: inherit;
+        }
+
+        select { background-color: #fff; height: 26px; padding: 2px 6px; }
+
+        .checkbox-row {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            margin-top: 8px;
+            padding: 4px 0;
+        }
+
+        .checkbox-row input[type="checkbox"] {
+            width: auto;
+            margin: 0;
+        }
+
+        .checkbox-row label {
+            margin: 0;
+            cursor: pointer;
         }
     </style>
 
@@ -84,12 +151,10 @@
         }
 
         function confirmCancel() {
-            const isConfirmed = confirm("¿Está seguro que desea cancelar? Se borrará toda la información ingresada.");
-            
+            const isConfirmed = confirm("Are you sure you want to cancel? All entered information will be cleared.");
             if (isConfirmed) {
                 const form = document.getElementById("companyForm");
                 const elements = form.elements;
-
                 for (let i = 0; i < elements.length; i++) {
                     const field = elements[i];
                     if (field.type === "text" || field.type === "email" || field.tagName === "TEXTAREA") {
@@ -132,7 +197,6 @@
 
     <form id="companyForm" action="{{form_action}}" method="post">
 
-        <!-- Cabecera Limpia con Título y Botones de Acción Arriba -->
         <div class="header-container">
             <h2>{{title}}</h2>
             <div class="top-actions">
@@ -142,10 +206,19 @@
             </div>
         </div>
 
+        <!-- CAMBIO 2026-09-14: Origin Address compacto -->
+        <div class="origin-address-box">
+            <label for="origin_address">📍 Origin Address (Route Start Point)</label>
+            <input type="text" id="origin_address" name="origin_address"
+                   value="{{origin_address}}"
+                   placeholder="Ej: 5250 N Pecos St, Denver, CO 80221">
+            <small>Starting point for daily route optimization. Leave blank to disable.</small>
+        </div>
+
         <div class="grid-container">
 
-            <!-- Columna 1 -->
-            <div>
+            <!-- COLUMNA 1: Company Info -->
+            <div class="col">
                 <label>Trade Name</label>
                 <input type="text" name="trade_name" value="{{trade_name}}" required>
 
@@ -161,18 +234,15 @@
                 <label>Address</label>
                 <input type="text" name="address" value="{{address}}">
 
-                <label>Notes</label>
-                <textarea name="notes" rows="3">{{notes}}</textarea>
-            </div>
-
-            <!-- Columna 2 -->
-            <div>
                 <label>Neighborhood</label>
                 <input type="text" name="neighborhood" value="{{neighborhood}}">
 
                 <label>City</label>
                 <input type="text" name="city" value="{{city}}">
+            </div>
 
+            <!-- COLUMNA 2: Location + Contact -->
+            <div class="col">
                 <label>State</label>
                 <select name="state">
                     <option value="">Select State</option>
@@ -234,12 +304,6 @@
                 <label>Main Phone</label>
                 <input type="text" name="main_phone" value="{{main_phone}}" oninput="formatPhone(this)">
 
-                <label>Invoice Notice</label>
-                <textarea name="invoice_notice" rows="3">{{invoice_notice}}</textarea>
-            </div>
-
-            <!-- Columna 3: Contacto, Costos y Estado Active -->
-            <div>
                 <label>Main Email</label>
                 <input type="email" name="main_email" value="{{main_email}}">
 
@@ -251,7 +315,10 @@
 
                 <label>Contact Email</label>
                 <input type="email" name="contact_email" value="{{contact_email}}">
+            </div>
 
+            <!-- COLUMNA 3: Finances + Notes + Status -->
+            <div class="col">
                 <label>General Sales Tax (%)</label>
                 <input type="number" step="0.01" name="general_sales_tax" value="{{general_sales_tax}}">
 
@@ -267,11 +334,15 @@
                 <label>Default Misc Cost ($)</label>
                 <input type="number" step="0.01" name="misc_cost" value="{{misc_cost}}">
 
-                <div style="margin-top: 15px;">
-                    <label style="display: flex; align-items: center; cursor: pointer;">
-                        <input type="checkbox" name="is_active" {{is_active_checked}} style="width: auto; margin-right: 8px;">
-                        <strong>Active</strong>
-                    </label>
+                <label>Notes</label>
+                <textarea name="notes" rows="2">{{notes}}</textarea>
+
+                <label>Invoice Notice</label>
+                <textarea name="invoice_notice" rows="2">{{invoice_notice}}</textarea>
+
+                <div class="checkbox-row">
+                    <input type="checkbox" name="is_active" id="is_active_cb" {{is_active_checked}}>
+                    <label for="is_active_cb"><strong>Active</strong></label>
                 </div>
             </div>
 

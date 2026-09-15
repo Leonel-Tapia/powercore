@@ -1,4 +1,4 @@
-<!-- /app/templates/company/company_detail.html | Updated: 2026-07-21 -->
+<!-- /app/templates/company/company_detail.html | Updated: 2026-09-14 (origin_address) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -85,6 +85,17 @@
             flex: 1;
             color: #444;
         }
+
+        /* CAMBIO 2026-09-14: fila destacada para origin_address */
+        .row.row-origin {
+            background: #f0f8ff;
+            border-left: 4px solid #0077cc;
+            padding-left: 8px;
+            margin: 4px -10px;
+            border-bottom: none;
+            border-radius: 0 4px 4px 0;
+        }
+        .row.row-origin .label { color: #0077cc; }
     </style>
 </head>
 
@@ -111,6 +122,12 @@
             <div class="row"><div class="label">City</div><div class="value">{{city}}</div></div>
             <div class="row"><div class="label">State</div><div class="value">{{state}}</div></div>
             <div class="row"><div class="label">Postal Code</div><div class="value">{{postal_code}}</div></div>
+
+            <!-- CAMBIO 2026-09-14: Origin Address destacado -->
+            <div class="row row-origin">
+                <div class="label">📍 Origin Address</div>
+                <div class="value">{{origin_address}}</div>
+            </div>
         </div>
 
         <!-- RIGHT COLUMN -->

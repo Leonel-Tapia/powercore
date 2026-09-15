@@ -1,4 +1,4 @@
-# /app/routers/company/company_router.py - Updated: 2026-07-21
+# /app/routers/company/company_router.py - Updated: 2026-09-14 (origin_address)
 from fastapi import APIRouter, Request, Depends, Form
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
@@ -23,7 +23,6 @@ def parse_decimal(value: str) -> Decimal:
 @router.get("/create", response_class=HTMLResponse)
 def company_create_form(request: Request, db: Session = Depends(get_db)):
 
-    # Si ya existe empresa → NO permitir crear otra
     existing = db.query(Company).first()
     if existing:
         return RedirectResponse(url="/company/detail", status_code=303)
@@ -41,7 +40,8 @@ def company_create_form(request: Request, db: Session = Depends(get_db)):
             "neighborhood", "city", "state", "postal_code", "main_phone",
             "main_email", "contact_name", "contact_phone", "contact_email",
             "notes", "invoice_notice", "general_sales_tax",
-            "mobile_fee", "labor_cost", "materials_cost", "misc_cost"
+            "mobile_fee", "labor_cost", "materials_cost", "misc_cost",
+            "origin_address"
         ]
 
         for field in placeholders:
@@ -82,6 +82,7 @@ def company_create(
     labor_cost: str = Form(None),
     materials_cost: str = Form(None),
     misc_cost: str = Form(None),
+    origin_address: str = Form(None),
 ):
 
     active_bool = True if is_active is not None else False
@@ -108,7 +109,8 @@ def company_create(
         mobile_fee=parse_decimal(mobile_fee),
         labor_cost=parse_decimal(labor_cost),
         materials_cost=parse_decimal(materials_cost),
-        misc_cost=parse_decimal(misc_cost)
+        misc_cost=parse_decimal(misc_cost),
+        origin_address=origin_address.strip() if origin_address and origin_address.strip() else None
     )
 
     try:
@@ -148,6 +150,7 @@ def company_update(
     labor_cost: str = Form(None),
     materials_cost: str = Form(None),
     misc_cost: str = Form(None),
+    origin_address: str = Form(None),
 ):
     company = db.query(Company).first()
     if not company:
@@ -177,10 +180,12 @@ def company_update(
     company.materials_cost = parse_decimal(materials_cost)
     company.misc_cost = parse_decimal(misc_cost)
 
+    # CAMBIO 2026-09-14: si viene vacío, guardar como NULL
+    company.origin_address = origin_address.strip() if origin_address and origin_address.strip() else None
+
     db.commit()
     db.refresh(company)
 
-    # Después de editar → regresar al menú del manager
     return RedirectResponse(url="/manager/menu", status_code=303)
 
 # -----------------------------
@@ -222,6 +227,7 @@ def company_edit_form(request: Request, db: Session = Depends(get_db)):
             "{{labor_cost}}": company.labor_cost if company.labor_cost is not None else "0.00",
             "{{materials_cost}}": company.materials_cost if company.materials_cost is not None else "0.00",
             "{{misc_cost}}": company.misc_cost if company.misc_cost is not None else "0.00",
+            "{{origin_address}}": company.origin_address or "",
             "{{is_active_checked}}": "checked" if company.is_active else ""
         }
 
@@ -269,7 +275,9 @@ def company_detail(request: Request, db: Session = Depends(get_db)):
             "{{mobile_fee}}": f"${company.mobile_fee}",
             "{{labor_cost}}": f"${company.labor_cost}",
             "{{materials_cost}}": f"${company.materials_cost}",
-            "{{misc_cost}}": f"${company.misc_cost}"
+            "{{misc_cost}}": f"${company.misc_cost}",
+            # CAMBIO 2026-09-14: valor con HTML si está vacío
+            "{{origin_address}}": company.origin_address if company.origin_address else '<span style="color:#dc3545;font-style:italic;font-weight:bold;">Not configured — route optimization disabled</span>'
         }
 
         for key, value in placeholders.items():

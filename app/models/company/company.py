@@ -30,5 +30,8 @@ class Company(Base):
     labor_cost = Column(Numeric(10, 2), default=0.00)
     materials_cost = Column(Numeric(10, 2), default=0.00)
     misc_cost = Column(Numeric(10, 2), default=0.00)
+
+    # CAMBIO 2026-09-14: punto de partida para optimización de ruta
+    origin_address = Column(Text, nullable=True)
      
     registration_date = Column(DateTime(timezone=True), server_default=func.now())
