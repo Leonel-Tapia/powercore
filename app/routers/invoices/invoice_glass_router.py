@@ -8,7 +8,7 @@ from typing import Optional
 from app.database.database import get_db
 from app.core.template_loader import jinja as templates
 
-from app.models.invoices.invoice_model import Invoice
+from app.models.invoices.invoice_model import Invoice, InvoiceItem
 from app.models.invoices.invoice_glass_model import InvoiceGlass
 from app.models.customers.customer_model import Customer
 from app.models.inventory.year_model import Year
@@ -47,6 +47,11 @@ def view_invoice_glasses(
         InvoiceGlass.invoice_id == invoice_id
     ).order_by(desc(InvoiceGlass.created_at)).all()
 
+    # NUEVO: items del invoice (para mostrar qué vidrio se necesita)
+    invoice_items = db.query(InvoiceItem).filter(
+        InvoiceItem.invoice_id == invoice_id
+    ).all()
+
     user_role = request.session.get("role", "").strip().lower()
 
     return templates.TemplateResponse(
@@ -57,6 +62,7 @@ def view_invoice_glasses(
             "customer": customer,
             "vehicle_year": vehicle_year,
             "glasses": glasses,
+            "invoice_items": invoice_items,
             "user_role": user_role
         }
     )

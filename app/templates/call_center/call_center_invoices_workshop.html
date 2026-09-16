@@ -1,4 +1,4 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-16 (Tech column + filters + optimize guard) -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-16 (Part column + bigger day badge) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -59,6 +59,15 @@
             display: inline-block;
             white-space: nowrap;
         }
+
+        /* Badge del día — más grande y visible */
+        #dayNameBadge {
+            font-size: 1.15rem;
+            font-weight: bold;
+            padding: 6px 16px;
+            letter-spacing: 0.5px;
+            box-shadow: 0 2px 4px rgba(13, 110, 253, 0.3);
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -91,8 +100,8 @@
                     </div>
 
                     <div class="col-auto">
-                        <span class="badge bg-primary fs-6 py-1 px-2" id="dayNameBadge">
-                            <i class="far fa-calendar-alt me-1"></i> <span id="dayNameText">{{ day_name }}</span>
+                        <span class="badge bg-primary" id="dayNameBadge">
+                            <i class="far fa-calendar-alt me-2"></i><span id="dayNameText">{{ day_name }}</span>
                         </span>
                     </div>
 
@@ -175,7 +184,6 @@
                         </select>
                     </div>
                     <div class="col-auto">
-                        <!-- CAMBIO 2026-09-14: data-has-origin para el JS + disabled si no está configurado -->
                         <button type="button" id="optimizeRouteBtn" class="btn btn-primary btn-sm py-1 px-3"
                                 data-has-origin="{{ 'true' if has_origin_address else 'false' }}"
                                 {% if is_past_date or total_invoices == 0 or not has_origin_address %}disabled{% endif %}
@@ -189,7 +197,6 @@
                         </div>
                     </div>
 
-                    <!-- CAMBIO 2026-09-14: aviso si origin_address no está configurado -->
                     {% if not has_origin_address %}
                     <div class="col-12 mt-1">
                         <div class="alert alert-warning py-1 px-2 mb-0" style="font-size: 12px;">
@@ -254,10 +261,10 @@
                         <thead class="table-dark">
                             <tr>
                                 <th class="py-2 text-nowrap">#</th>
-                                <th class="py-2 text-nowrap">Appt Date</th>
                                 <th class="py-2 text-nowrap">Time</th>
                                 <th class="py-2">Customer</th>
                                 <th class="py-2 text-center text-nowrap">Tech</th>
+                                <th class="py-2 text-nowrap">Part</th>
                                 <th class="py-2">Vehicle</th>
                                 <th class="py-2 text-nowrap">Total</th>
                                 <th class="py-2 text-nowrap">Paid</th>
@@ -274,14 +281,12 @@
                                 {% set status = invoice.status | default('PENDING') %}
                                 {% set is_void = status | upper == 'VOID' %}
                                 {% set tech_name = tech_names.get(invoice.id) %}
+                                {% set gn = glass_needed.get(invoice.id) %}
                                 <tr class="{% if is_void %}table-danger{% endif %}">
                                     <td class="py-1 text-nowrap">
                                         <a href="/invoices/view/{{ invoice.id }}?return_url={{ return_url }}" class="fw-bold text-decoration-none">
                                             #{{ invoice.id }}
                                         </a>
-                                    </td>
-                                    <td class="py-1 text-nowrap">
-                                        {{ invoice.estimated_appointment_date.strftime('%Y-%m-%d') if invoice.estimated_appointment_date else '—' }}
                                     </td>
                                     <td class="py-1 text-nowrap">
                                         {{ appt_time.strftime('%I:%M %p') if appt_time else '—' }}
@@ -306,6 +311,19 @@
                                                title="Click to assign a technician">
                                                 <i class="fas fa-exclamation-triangle me-1"></i>UNASSIGNED
                                             </a>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-1" style="min-width:120px;">
+                                        {% if gn and gn.nags %}
+                                            <div style="font-weight:bold; color:#0d6e6e; font-size:0.8rem;">{{ gn.nags }}</div>
+                                            {% if gn.description %}
+                                                <div style="font-size:0.68rem; color:#6c757d;">{{ gn.description }}</div>
+                                            {% endif %}
+                                            {% if gn.extra_count > 0 %}
+                                                <div style="font-size:0.65rem; color:#0d6e6e; font-weight:bold;">+{{ gn.extra_count }} more</div>
+                                            {% endif %}
+                                        {% else %}
+                                            <span class="text-muted" style="font-size:0.7rem;">—</span>
                                         {% endif %}
                                     </td>
                                     <td class="py-1">
@@ -650,7 +668,7 @@
                     return;
                 }
 
-                // NUEVO: Bloquear si hay invoices sin técnico asignado en la vista actual
+                // Bloquear si hay invoices sin técnico asignado en la vista actual
                 const unassignedBadges = document.querySelectorAll('.tech-unassigned');
                 if (unassignedBadges.length > 0) {
                     alert(

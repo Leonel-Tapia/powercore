@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-16 (tech filter + tech names)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-16 (glass_needed for workshop)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -792,7 +792,9 @@ def invoices_workshop_view(
     invoices = base_query.order_by(asc(Invoice.estimated_appointment_time)).all()
     
     invoices_data = []
-    tech_names = {}  # {invoice_id: "Nombre del técnico" | None}
+    tech_names = {}     # {invoice_id: "Nombre del técnico" | None}
+    glass_needed = {}   # {invoice_id: {nags, description, extra_count} | None}
+    
     for inv in invoices:
         customer = db.query(Customer).filter(Customer.id == inv.customer_id).first() if inv.customer_id else None
         
@@ -802,6 +804,18 @@ def invoices_workshop_view(
             tech_names[inv.id] = (tech.full_name or tech.username) if tech else None
         else:
             tech_names[inv.id] = None
+        
+        # Vidrio requerido por el invoice (primer item + conteo extra)
+        items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == inv.id).all()
+        if items:
+            first = items[0]
+            glass_needed[inv.id] = {
+                "nags": first.product_name or "",
+                "description": first.description or "",
+                "extra_count": max(0, len(items) - 1)
+            }
+        else:
+            glass_needed[inv.id] = None
         
         vehicle_year = None
         if inv.vehicle_year_id:
@@ -841,11 +855,12 @@ def invoices_workshop_view(
             "unassigned_count": unassigned_count,
             "tech_filter": tech_filter or "all",
             "tech_names": tech_names,
+            "glass_needed": glass_needed,
             "return_url": return_url,
             "technicians": technicians,
             "is_past_date": target_date < date.today(),
             "user_role": user_role,
-            "has_origin_address": has_origin_address  # <-- CAMBIO 2026-09-14
+            "has_origin_address": has_origin_address
         }
     )
 

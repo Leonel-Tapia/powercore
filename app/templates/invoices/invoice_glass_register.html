@@ -35,6 +35,20 @@
         }
         .info-box .value { font-size: 0.85rem; font-weight: 500; }
 
+        /* Required glass box - highlight */
+        .required-glass-box {
+            background: #fff8e1;
+            border: 2px dashed #f0ad4e;
+            border-radius: 6px;
+            padding: 10px 14px;
+            margin-bottom: 8px;
+        }
+        .required-glass-box .section-title {
+            color: #b8860b;
+            border-bottom: 1px solid #f0ad4e;
+            margin-bottom: 10px;
+        }
+
         .compact-form .form-label {
             font-size: 0.7rem;
             text-transform: uppercase;
@@ -59,6 +73,17 @@
             border-bottom: 2px solid #0d6e6e;
         }
         .glass-table td { padding: 4px 6px; vertical-align: middle; }
+
+        .required-table { font-size: 0.8rem; margin-bottom: 0; }
+        .required-table th {
+            font-size: 0.7rem;
+            padding: 4px 6px;
+            background: #fff3cd;
+            text-transform: uppercase;
+            color: #856404;
+            border-bottom: 2px solid #f0ad4e;
+        }
+        .required-table td { padding: 4px 6px; vertical-align: middle; }
 
         .badge-status-ORDERED   { background-color: #f0ad4e; color: white; }
         .badge-status-RECEIVED  { background-color: #0275d8; color: white; }
@@ -172,6 +197,44 @@
                 </div>
             </div>
         </div>
+    </div>
+
+    <!-- NUEVO: GLASS REQUIRED FOR THIS INVOICE -->
+    <div class="required-glass-box">
+        <div class="section-title">⚠ Glass Required for This Invoice</div>
+        {% if invoice_items %}
+            <table class="table table-sm required-table">
+                <thead>
+                    <tr>
+                        <th style="width:40px;">#</th>
+                        <th style="width:120px;">NAGS Code</th>
+                        <th>Description</th>
+                        <th style="width:80px;" class="text-center">Qty</th>
+                        <th style="width:100px;" class="text-end">Cost</th>
+                        <th style="width:100px;" class="text-end">Price</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in invoice_items %}
+                    <tr>
+                        <td>{{ loop.index }}</td>
+                        <td><strong>{{ item.product_name or '-' }}</strong></td>
+                        <td>{{ item.description or '-' }}</td>
+                        <td class="text-center">{{ item.quantity or 1 }}</td>
+                        <td class="text-end">${{ "%.2f"|format(item.cost or 0) }}</td>
+                        <td class="text-end">${{ "%.2f"|format(item.price or 0) }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <div class="mt-2" style="font-size:0.75rem; color:#856404;">
+                <strong>Verify the NAGS code matches before registering the purchase below.</strong>
+            </div>
+        {% else %}
+            <div class="text-muted" style="font-size:0.8rem;">
+                <em>No items registered in this invoice yet.</em>
+            </div>
+        {% endif %}
     </div>
 
     <!-- ADD GLASS BUTTON -->
