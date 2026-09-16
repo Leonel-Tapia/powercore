@@ -1,4 +1,4 @@
-<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-14 (fix data-has-origin) -->
+<!-- Path: app/templates/call_center/call_center_invoices_workshop.html | Updated: 2026-09-16 (Tech column + filters + optimize guard) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -33,6 +33,32 @@
             color: #fff !important;
             box-shadow: inset 0 -1px 0 #495057;
         }
+
+        /* Tech badges */
+        .tech-unassigned {
+            background-color: #dc3545;
+            color: white;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: bold;
+            display: inline-block;
+            white-space: nowrap;
+        }
+        .tech-unassigned:hover {
+            background-color: #b02a37;
+            color: white;
+        }
+        .tech-assigned {
+            background-color: #d1e7dd;
+            color: #0d6e6e;
+            font-size: 0.7rem;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            display: inline-block;
+            white-space: nowrap;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -53,6 +79,7 @@
             <div class="card-body bg-white py-2 px-3">
                 <form method="get" action="/invoices/workshop" id="filterForm" class="row align-items-center g-2">
                     <input type="hidden" name="status_filter" id="status_filter_input" value="{{ status_filter | default('all') }}">
+                    <input type="hidden" name="tech_filter" id="tech_filter_input" value="{{ tech_filter | default('all') }}">
 
                     <div class="col-auto">
                         <label for="selected_date" class="col-form-label fw-bold small">Select Date:</label>
@@ -113,6 +140,14 @@
                                 <i class="fas fa-ban me-1"></i>
                                 Void ({{ void_count }})
                             </button>
+
+                            <button type="button"
+                                class="btn {% if tech_filter == 'unassigned' %}btn-danger{% else %}btn-outline-danger{% endif %}"
+                                onclick="setTechFilter('unassigned')"
+                                title="Show only invoices without technician assigned">
+                                <i class="fas fa-user-slash me-1"></i>
+                                Unassigned ({{ unassigned_count }})
+                            </button>
                         </div>
                     </div>
                 </form>
@@ -129,10 +164,13 @@
                         </label>
                     </div>
                     <div class="col-auto">
-                        <select id="technicianSelect" class="form-select form-select-sm py-1">
+                        <select id="technicianSelect" class="form-select form-select-sm py-1" onchange="setTechFilter(this.value || 'all')">
                             <option value="">All Technicians</option>
                             {% for tech in technicians %}
-                                <option value="{{ tech.id }}">{{ tech.full_name }}</option>
+                                <option value="{{ tech.id }}"
+                                        {% if tech_filter == tech.id|string %}selected{% endif %}>
+                                    {{ tech.full_name }}
+                                </option>
                             {% endfor %}
                         </select>
                     </div>
@@ -219,6 +257,7 @@
                                 <th class="py-2 text-nowrap">Appt Date</th>
                                 <th class="py-2 text-nowrap">Time</th>
                                 <th class="py-2">Customer</th>
+                                <th class="py-2 text-center text-nowrap">Tech</th>
                                 <th class="py-2">Vehicle</th>
                                 <th class="py-2 text-nowrap">Total</th>
                                 <th class="py-2 text-nowrap">Paid</th>
@@ -226,6 +265,7 @@
                                 <th class="py-2 text-nowrap">Type</th>
                                 <th class="py-2 text-center text-nowrap">Status</th>
                                 <th class="py-2 text-center text-nowrap">Actions</th>
+                                <th class="py-2 text-center text-nowrap">Glass</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -233,6 +273,7 @@
                                 {% for invoice, customer, vehicle_year, total_paid, balance_due, appt_time in invoices_data %}
                                 {% set status = invoice.status | default('PENDING') %}
                                 {% set is_void = status | upper == 'VOID' %}
+                                {% set tech_name = tech_names.get(invoice.id) %}
                                 <tr class="{% if is_void %}table-danger{% endif %}">
                                     <td class="py-1 text-nowrap">
                                         <a href="/invoices/view/{{ invoice.id }}?return_url={{ return_url }}" class="fw-bold text-decoration-none">
@@ -252,6 +293,19 @@
                                             </a>
                                         {% else %}
                                             <span class="text-muted">Unknown</span>
+                                        {% endif %}
+                                    </td>
+                                    <td class="py-1 text-center text-nowrap">
+                                        {% if tech_name %}
+                                            <span class="tech-assigned">
+                                                <i class="fas fa-user-check me-1"></i>{{ tech_name }}
+                                            </span>
+                                        {% else %}
+                                            <a href="/invoices/view/{{ invoice.id }}?return_url={{ return_url }}"
+                                               class="tech-unassigned text-decoration-none"
+                                               title="Click to assign a technician">
+                                                <i class="fas fa-exclamation-triangle me-1"></i>UNASSIGNED
+                                            </a>
                                         {% endif %}
                                     </td>
                                     <td class="py-1">
@@ -307,11 +361,19 @@
                                             </button>
                                         </div>
                                     </td>
+                                    <td class="py-1 text-center">
+                                        <a href="/invoices/{{ invoice.id }}/glasses"
+                                           class="btn btn-sm py-0 px-2"
+                                           style="background-color:#0d6e6e; color:white; border:none; font-size:0.75rem;"
+                                           title="Glass Register">
+                                            <i class="fas fa-car-side me-1"></i>Glass
+                                        </a>
+                                    </td>
                                 </tr>
                                 {% endfor %}
                             {% else %}
                                 <tr>
-                                    <td colspan="11" class="text-center py-3 text-muted">
+                                    <td colspan="13" class="text-center py-3 text-muted">
                                         <i class="fas fa-info-circle me-1"></i> No invoices found for this date and filter.
                                     </td>
                                 </tr>
@@ -414,6 +476,11 @@
     <script>
         function setStatusFilter(status) {
             document.getElementById('status_filter_input').value = status;
+            document.getElementById('filterForm').submit();
+        }
+
+        function setTechFilter(value) {
+            document.getElementById('tech_filter_input').value = value || 'all';
             document.getElementById('filterForm').submit();
         }
 
@@ -574,13 +641,23 @@
             const dateInput = document.getElementById('selected_date');
             const technicianSelect = document.getElementById('technicianSelect');
 
-            // CAMBIO 2026-09-14: leer valor desde atributo data- del botón (evita errores del linter)
             const HAS_ORIGIN_ADDRESS = optimizeBtn.dataset.hasOrigin === 'true';
 
             optimizeBtn.addEventListener('click', async function() {
                 const date = dateInput ? dateInput.value : null;
                 if (!date) {
                     alert('Please select a date first.');
+                    return;
+                }
+
+                // NUEVO: Bloquear si hay invoices sin técnico asignado en la vista actual
+                const unassignedBadges = document.querySelectorAll('.tech-unassigned');
+                if (unassignedBadges.length > 0) {
+                    alert(
+                        '⚠️ Cannot optimize route.\n\n' +
+                        unassignedBadges.length + ' invoice(s) on this view have no technician assigned.\n\n' +
+                        'Please assign a technician to every invoice before optimizing the route.'
+                    );
                     return;
                 }
 
@@ -595,7 +672,6 @@
                     const response = await fetch(url, { method: 'POST' });
                     const data = await response.json();
 
-                    // CAMBIO 2026-09-14: manejar errores específicos (ej: origin_address faltante)
                     if (!response.ok) {
                         const errMsg = data.detail || data.message || 'Unknown error';
                         alert('Error: ' + errMsg);
@@ -621,7 +697,6 @@
                     alert('An error occurred while optimizing the route.');
                 } finally {
                     loadingSpinner.style.display = 'none';
-                    // CAMBIO 2026-09-14: solo rehabilitar si origin_address está configurado
                     if (HAS_ORIGIN_ADDRESS) {
                         optimizeBtn.disabled = false;
                     }

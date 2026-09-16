@@ -1,4 +1,4 @@
-# RUTA: app/main.py | ACTUALIZADO: 2026-09-04
+# RUTA: app/main.py | ACTUALIZADO: 2026-09-16 (invoice_glass_router registered)
 # DESCRIPCIÓN: Punto de entrada principal de PowerCore - Registro de módulos
 
 from fastapi import FastAPI
@@ -60,6 +60,9 @@ from app.routers.invoices.invoices_router import router as invoices_router
 
 # TÉCNICO - Ruta del día
 from app.routers.invoices.technician_routes import router as technician_router
+
+# INVOICE GLASSES (InvoiceGlass Module)
+from app.routers.invoices.invoice_glass_router import router as invoice_glass_router
 
 
 app = FastAPI(title="PowerCore System")
@@ -139,6 +142,9 @@ app.include_router(invoices_router)
 
 # 7.4 Technician Dashboard
 app.include_router(technician_router)
+
+# 7.5 Invoice Glasses Module (NUEVO)
+app.include_router(invoice_glass_router)
 
 # 7.2 Zip Codes System
 app.include_router(zipcodes_router)

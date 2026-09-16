@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-14 (origin_address from Company)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-16 (tech filter + tech names)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -741,6 +741,7 @@ def invoices_workshop_view(
     request: Request,
     selected_date: Optional[str] = None,
     status_filter: Optional[str] = "all",
+    tech_filter: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
     if selected_date:
@@ -752,7 +753,7 @@ def invoices_workshop_view(
         target_date = date.today()
     
     day_name = target_date.strftime("%A")
-    return_url = f"/invoices/workshop?selected_date={selected_date or target_date.strftime('%Y-%m-%d')}&status_filter={status_filter or 'all'}"
+    return_url = f"/invoices/workshop?selected_date={selected_date or target_date.strftime('%Y-%m-%d')}&status_filter={status_filter or 'all'}&tech_filter={tech_filter or 'all'}"
     
     base_query = db.query(Invoice).filter(
         Invoice.estimated_appointment_date == target_date
@@ -765,6 +766,7 @@ def invoices_workshop_view(
     partially_paid_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "PARTIALLY_PAID")
     paid_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "PAID")
     void_count = sum(1 for inv in all_invoices if inv.status and inv.status.upper() == "VOID")
+    unassigned_count = sum(1 for inv in all_invoices if inv.technician_id is None)
     
     if status_filter and status_filter != "all":
         if status_filter.upper() == "PENDING":
@@ -775,12 +777,31 @@ def invoices_workshop_view(
             base_query = base_query.filter(Invoice.status == "PAID")
         elif status_filter.upper() == "VOID":
             base_query = base_query.filter(Invoice.status.ilike("void"))
+    
+    # Filtro por técnico (dropdown del Workshop)
+    if tech_filter and tech_filter != "all":
+        if tech_filter == "unassigned":
+            base_query = base_query.filter(Invoice.technician_id.is_(None))
+        else:
+            try:
+                tech_id_val = int(tech_filter)
+                base_query = base_query.filter(Invoice.technician_id == tech_id_val)
+            except ValueError:
+                pass
      
     invoices = base_query.order_by(asc(Invoice.estimated_appointment_time)).all()
     
     invoices_data = []
+    tech_names = {}  # {invoice_id: "Nombre del técnico" | None}
     for inv in invoices:
         customer = db.query(Customer).filter(Customer.id == inv.customer_id).first() if inv.customer_id else None
+        
+        # Nombre del técnico asignado al invoice (si existe)
+        if inv.technician_id:
+            tech = db.query(User).filter(User.id == inv.technician_id).first()
+            tech_names[inv.id] = (tech.full_name or tech.username) if tech else None
+        else:
+            tech_names[inv.id] = None
         
         vehicle_year = None
         if inv.vehicle_year_id:
@@ -817,6 +838,9 @@ def invoices_workshop_view(
             "partially_paid_count": partially_paid_count,
             "paid_count": paid_count,
             "void_count": void_count,
+            "unassigned_count": unassigned_count,
+            "tech_filter": tech_filter or "all",
+            "tech_names": tech_names,
             "return_url": return_url,
             "technicians": technicians,
             "is_past_date": target_date < date.today(),
