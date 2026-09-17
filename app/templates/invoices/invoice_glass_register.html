@@ -35,34 +35,112 @@
         }
         .info-box .value { font-size: 0.85rem; font-weight: 500; }
 
-        /* Required glass box - highlight */
+        /* Required glass box */
         .required-glass-box {
             background: #fff8e1;
             border: 2px dashed #f0ad4e;
             border-radius: 6px;
-            padding: 10px 14px;
+            padding: 8px 12px;
             margin-bottom: 8px;
         }
         .required-glass-box .section-title {
             color: #b8860b;
             border-bottom: 1px solid #f0ad4e;
-            margin-bottom: 10px;
+            margin-bottom: 6px;
+        }
+
+        .required-table { font-size: 0.75rem; margin-bottom: 0; }
+        .required-table th {
+            font-size: 0.65rem;
+            padding: 3px 5px;
+            background: #fff3cd;
+            text-transform: uppercase;
+            color: #856404;
+            border-bottom: 2px solid #f0ad4e;
+        }
+        .required-table td { padding: 3px 5px; vertical-align: middle; }
+
+        /* ============ MODAL COMPACTO ============ */
+        .modal {
+            position: fixed;
+            top: 0; left: 0;
+            width: 100%; height: 100%;
+            background: rgba(0,0,0,0.4);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 999;
+            padding: 10px;
+        }
+        .modal-content-custom {
+            background: white;
+            padding: 12px 16px;
+            border-radius: 8px;
+            max-height: 96vh;
+            overflow-y: auto;
+            width: 720px;
+            max-width: 98%;
+        }
+
+        .modal-title-compact {
+            font-size: 1.15rem;
+            color: #0d6e6e;
+            margin-bottom: 8px;
+            text-align: center;
+            padding-bottom: 4px;
+            border-bottom: 1px solid #e0e0e0;
         }
 
         .compact-form .form-label {
-            font-size: 0.7rem;
+            font-size: 0.6rem;
             text-transform: uppercase;
             color: #6c757d;
             font-weight: bold;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
+            letter-spacing: 0.3px;
         }
         .compact-form .form-control,
         .compact-form .form-select {
-            font-size: 0.8rem;
-            height: 30px;
-            padding: 3px 6px;
+            font-size: 0.72rem;
+            height: 24px;
+            padding: 1px 5px;
+            border-radius: 3px;
+        }
+        .compact-form textarea.form-control {
+            height: auto;
+            min-height: 26px;
+            padding: 2px 5px;
+        }
+        .compact-form .form-check-input {
+            width: 13px;
+            height: 13px;
+            margin-top: 3px;
+        }
+        .compact-form .form-check-label {
+            font-size: 0.72rem;
+            padding-left: 2px;
+        }
+        .compact-form .row { margin: 0; }
+        .compact-form .row > [class*="col-"] {
+            padding-left: 3px;
+            padding-right: 3px;
+            margin-bottom: 4px;
         }
 
+        .modal-footer-compact {
+            margin-top: 6px;
+            padding-top: 6px;
+            border-top: 1px solid #e0e0e0;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        .modal-footer-compact .btn {
+            font-size: 0.75rem;
+            padding: 3px 14px;
+        }
+
+        /* ============ GLASS LIST TABLE ============ */
         .glass-table { font-size: 0.75rem; }
         .glass-table th {
             font-size: 0.7rem;
@@ -73,17 +151,6 @@
             border-bottom: 2px solid #0d6e6e;
         }
         .glass-table td { padding: 4px 6px; vertical-align: middle; }
-
-        .required-table { font-size: 0.8rem; margin-bottom: 0; }
-        .required-table th {
-            font-size: 0.7rem;
-            padding: 4px 6px;
-            background: #fff3cd;
-            text-transform: uppercase;
-            color: #856404;
-            border-bottom: 2px solid #f0ad4e;
-        }
-        .required-table td { padding: 4px 6px; vertical-align: middle; }
 
         .badge-status-ORDERED   { background-color: #f0ad4e; color: white; }
         .badge-status-RECEIVED  { background-color: #0275d8; color: white; }
@@ -121,26 +188,6 @@
             align-items: center;
             box-shadow: 0 -2px 10px rgba(0,0,0,0.08);
             z-index: 900;
-        }
-
-        .modal {
-            position: fixed;
-            top: 0; left: 0;
-            width: 100%; height: 100%;
-            background: rgba(0,0,0,0.4);
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            z-index: 999;
-        }
-        .modal-content-custom {
-            background: white;
-            padding: 20px;
-            border-radius: 8px;
-            max-height: 90vh;
-            overflow-y: auto;
-            width: 600px;
-            max-width: 95%;
         }
     </style>
 </head>
@@ -199,19 +246,19 @@
         </div>
     </div>
 
-    <!-- NUEVO: GLASS REQUIRED FOR THIS INVOICE -->
+    <!-- GLASS REQUIRED -->
     <div class="required-glass-box">
         <div class="section-title">⚠ Glass Required for This Invoice</div>
         {% if invoice_items %}
             <table class="table table-sm required-table">
                 <thead>
                     <tr>
-                        <th style="width:40px;">#</th>
-                        <th style="width:120px;">NAGS Code</th>
+                        <th style="width:35px;">#</th>
+                        <th style="width:110px;">NAGS Code</th>
                         <th>Description</th>
-                        <th style="width:80px;" class="text-center">Qty</th>
-                        <th style="width:100px;" class="text-end">Cost</th>
-                        <th style="width:100px;" class="text-end">Price</th>
+                        <th style="width:60px;" class="text-center">Qty</th>
+                        <th style="width:85px;" class="text-end">Cost</th>
+                        <th style="width:85px;" class="text-end">Price</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -227,11 +274,11 @@
                     {% endfor %}
                 </tbody>
             </table>
-            <div class="mt-2" style="font-size:0.75rem; color:#856404;">
+            <div class="mt-1" style="font-size:0.7rem; color:#856404;">
                 <strong>Verify the NAGS code matches before registering the purchase below.</strong>
             </div>
         {% else %}
-            <div class="text-muted" style="font-size:0.8rem;">
+            <div class="text-muted" style="font-size:0.75rem;">
                 <em>No items registered in this invoice yet.</em>
             </div>
         {% endif %}
@@ -255,19 +302,19 @@
             <table class="table table-bordered glass-table">
                 <thead>
                     <tr>
-                        <th style="width:40px;">#</th>
-                        <th style="width:110px;">Vendor</th>
-                        <th style="width:90px;">PO #</th>
-                        <th style="width:90px;">NAGS</th>
+                        <th style="width:35px;">#</th>
+                        <th style="width:100px;">Vendor</th>
+                        <th style="width:80px;">PO #</th>
+                        <th style="width:80px;">NAGS</th>
                         <th>Description</th>
-                        <th style="width:70px;">Type</th>
-                        <th style="width:80px;">Position</th>
-                        <th style="width:80px;">Purchase $</th>
-                        <th style="width:80px;">Sales $</th>
-                        <th style="width:80px;">Payment</th>
-                        <th style="width:90px;">Status</th>
-                        <th style="width:80px;">Storage</th>
-                        <th style="width:150px;">Actions</th>
+                        <th style="width:65px;">Type</th>
+                        <th style="width:75px;">Position</th>
+                        <th style="width:75px;">Purch $</th>
+                        <th style="width:75px;">Sales $</th>
+                        <th style="width:75px;">Payment</th>
+                        <th style="width:85px;">Status</th>
+                        <th style="width:75px;">Storage</th>
+                        <th style="width:130px;">Actions</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -324,47 +371,50 @@
 </div>
 
 <!-- ============================================================ -->
-<!-- MODAL: ADD / EDIT GLASS -->
+<!-- MODAL: ADD / EDIT GLASS (COMPACTO) -->
 <!-- ============================================================ -->
 <div id="glassModal" class="modal" style="display:none;">
     <div class="modal-content-custom">
-        <h4 class="mb-3 text-center" id="glass-modal-title" style="color:#0d6e6e;">Add Glass</h4>
+        <h4 class="modal-title-compact" id="glass-modal-title">Add Glass</h4>
 
         <form id="glassForm" method="POST" action="/invoices/{{ invoice.id }}/glasses" class="compact-form">
-            <div class="row g-2">
-                <div class="col-md-6">
+            <div class="row">
+                <!-- Row 1: Vendor + PO# + Vendor Invoice # -->
+                <div class="col-5">
                     <label class="form-label">Vendor</label>
-                    <input type="text" name="vendor" id="f_vendor" class="form-control" placeholder="Mygrant, Pilkington, etc.">
+                    <input type="text" name="vendor" id="f_vendor" class="form-control" placeholder="Mygrant, Pilkington...">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Purchase Order #</label>
+                <div class="col-3">
+                    <label class="form-label">PO #</label>
                     <input type="text" name="purchase_order_number" id="f_purchase_order_number" class="form-control">
                 </div>
-
-                <div class="col-md-6">
+                <div class="col-4">
                     <label class="form-label">Vendor Invoice #</label>
                     <input type="text" name="vendor_invoice_number" id="f_vendor_invoice_number" class="form-control">
                 </div>
-                <div class="col-md-6">
-                    <label class="form-label">Vendor Invoice Date</label>
+
+                <!-- Row 2: Vendor Invoice Date + Purchase Date + NAGS Code -->
+                <div class="col-4">
+                    <label class="form-label">Vendor Inv. Date</label>
                     <input type="date" name="vendor_invoice_date" id="f_vendor_invoice_date" class="form-control">
                 </div>
-
-                <div class="col-md-6">
+                <div class="col-4">
                     <label class="form-label">Purchase Date</label>
                     <input type="date" name="purchase_date" id="f_purchase_date" class="form-control">
                 </div>
-                <div class="col-md-6">
+                <div class="col-4">
                     <label class="form-label">NAGS Code</label>
                     <input type="text" name="nags_code" id="f_nags_code" class="form-control">
                 </div>
 
+                <!-- Row 3: Description (full) -->
                 <div class="col-12">
                     <label class="form-label">Description</label>
                     <input type="text" name="description" id="f_description" class="form-control" placeholder="e.g., Windshield w/ Acoustic">
                 </div>
 
-                <div class="col-md-4">
+                <!-- Row 4: Glass Type + Position + Storage -->
+                <div class="col-4">
                     <label class="form-label">Glass Type</label>
                     <select name="glass_type" id="f_glass_type" class="form-select">
                         <option value="">-- Select --</option>
@@ -376,7 +426,7 @@
                         <option value="OTHER">OTHER</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-4">
                     <label class="form-label">Position</label>
                     <select name="position" id="f_position" class="form-select">
                         <option value="">-- Select --</option>
@@ -389,29 +439,29 @@
                         <option value="N/A">N/A</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-4">
                     <label class="form-label">Storage Location</label>
                     <input type="text" name="storage_location" id="f_storage_location" class="form-control" placeholder="Rack A-3">
                 </div>
 
-                <div class="col-md-6">
+                <!-- Row 5: Purchase Price + Sales Price + Payment Status + Glass Status + Is Ordered -->
+                <div class="col-3">
                     <label class="form-label">Purchase Price</label>
                     <input type="number" step="0.01" min="0" name="purchase_price" id="f_purchase_price" class="form-control" placeholder="0.00">
                 </div>
-                <div class="col-md-6">
+                <div class="col-3">
                     <label class="form-label">Sales Price</label>
                     <input type="number" step="0.01" min="0" name="sales_price" id="f_sales_price" class="form-control" placeholder="0.00">
                 </div>
-
-                <div class="col-md-4">
-                    <label class="form-label">Payment Status</label>
+                <div class="col-2">
+                    <label class="form-label">Payment</label>
                     <select name="payment_status" id="f_payment_status" class="form-select">
                         <option value="PENDING">PENDING</option>
                         <option value="PAID">PAID</option>
                         <option value="CREDIT">CREDIT</option>
                     </select>
                 </div>
-                <div class="col-md-4">
+                <div class="col-2">
                     <label class="form-label">Glass Status</label>
                     <select name="status" id="f_status" class="form-select">
                         <option value="ORDERED">ORDERED</option>
@@ -422,23 +472,24 @@
                         <option value="CANCELLED">CANCELLED</option>
                     </select>
                 </div>
-                <div class="col-md-4 d-flex align-items-end">
+                <div class="col-2 d-flex align-items-end" style="padding-bottom:2px;">
                     <div class="form-check">
                         <input type="checkbox" name="is_ordered" id="f_is_ordered" class="form-check-input">
-                        <label class="form-check-label" for="f_is_ordered" style="font-size:0.8rem;">Is Ordered?</label>
+                        <label class="form-check-label" for="f_is_ordered">Ordered?</label>
                     </div>
                 </div>
 
+                <!-- Row 6: Notes (full) -->
                 <div class="col-12">
                     <label class="form-label">Notes</label>
-                    <textarea name="notes" id="f_notes" class="form-control" rows="2"></textarea>
+                    <textarea name="notes" id="f_notes" class="form-control" rows="1"></textarea>
                 </div>
             </div>
 
-            <div class="d-flex justify-content-between mt-3">
+            <div class="modal-footer-compact">
                 <button type="button" class="btn btn-secondary btn-sm" onclick="closeGlassModal()">Cancel</button>
                 <button type="submit" class="btn btn-sm text-white fw-bold" style="background:#0d6e6e;">
-                    Save Glass
+                    💾 Save Glass
                 </button>
             </div>
         </form>
