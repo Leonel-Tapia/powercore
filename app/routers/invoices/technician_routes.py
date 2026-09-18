@@ -1,6 +1,6 @@
 # RUTA: app/routers/invoices/technician_routes.py
 # CREADO: 2026-09-04
-# ACTUALIZADO: 2026-09-13 - Dashboard: fecha seleccionable + filtro por estimated_appointment_date
+# ACTUALIZADO: 2026-09-18 - Agregado customer_phone + city/state/zip al dashboard
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -114,13 +114,18 @@ def technician_dashboard(
         target_date = date.today()
 
     # CAMBIO 2026-09-13: filtrar por estimated_appointment_date (día de la cita)
+    # CAMBIO 2026-09-18: agregado customer_phone + city/state/zip
     invoices = (
         db.query(
             Invoice.id,
             Invoice.estimated_appointment_time,
             Invoice.service_type,
             Customer.name.label("customer_name"),
+            Customer.phone.label("customer_phone"),
             Customer.address.label("customer_address"),
+            Customer.city.label("customer_city"),
+            Customer.state.label("customer_state"),
+            Customer.zip_code.label("customer_zip"),
             Invoice.vehicle_make,
             Invoice.vehicle_model,
             Invoice.total,
@@ -146,8 +151,8 @@ def technician_dashboard(
             "technician_name": technician_name,
             "invoices": invoices,
             "today": date.today(),
-            "target_date": target_date,                          # <-- CAMBIO 2026-09-13
-            "selected_date": target_date.strftime("%Y-%m-%d"),   # <-- CAMBIO 2026-09-13
+            "target_date": target_date,
+            "selected_date": target_date.strftime("%Y-%m-%d"),
         }
     )
 
