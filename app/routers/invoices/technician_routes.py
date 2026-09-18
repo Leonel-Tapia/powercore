@@ -1,6 +1,6 @@
 # RUTA: app/routers/invoices/technician_routes.py
 # CREADO: 2026-09-04
-# ACTUALIZADO: 2026-09-18 - Agregado customer_phone + city/state/zip al dashboard
+# ACTUALIZADO: 2026-09-18 - Agregado customer_phone + city/state/zip + glass_info (NAGS por invoice)
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -11,7 +11,7 @@ from typing import Optional
 from io import BytesIO
 from xhtml2pdf import pisa
 from app.database.database import get_db
-from app.models.invoices.invoice_model import Invoice
+from app.models.invoices.invoice_model import Invoice, InvoiceItem
 from app.models.invoices.invoice_payment_model import InvoicePayment
 from app.models.customers.customer_model import Customer
 from app.models.company.company import Company
@@ -141,6 +141,21 @@ def technician_dashboard(
         .all()
     )
 
+    # NUEVO 2026-09-18: construir dict con los items (NAGS) por invoice
+    # Estructura: { invoice_id: [ {"nags": "...", "description": "...", "quantity": 1}, ... ] }
+    glass_info = {}
+    if invoices:
+        invoice_ids = [inv.id for inv in invoices]
+        all_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id.in_(invoice_ids)).all()
+        for item in all_items:
+            if item.invoice_id not in glass_info:
+                glass_info[item.invoice_id] = []
+            glass_info[item.invoice_id].append({
+                "nags": item.product_name or "",
+                "description": item.description or "",
+                "quantity": item.quantity or 1,
+            })
+
     # Obtener el nombre del técnico
     technician_name = request.session.get("user_name", "Técnico")
 
@@ -150,6 +165,7 @@ def technician_dashboard(
         context={
             "technician_name": technician_name,
             "invoices": invoices,
+            "glass_info": glass_info,
             "today": date.today(),
             "target_date": target_date,
             "selected_date": target_date.strftime("%Y-%m-%d"),

@@ -1,4 +1,4 @@
-<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-18 (Quick date buttons + AM/PM) -->
+<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-18 (NAGS por invoice debajo de Vehicle) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -323,6 +323,15 @@
             white-space: nowrap;
         }
 
+        /* NUEVO: NAGS code debajo del vehículo */
+        .glass-nags-line {
+            font-size: 11px;
+            color: #0d6e6e;
+            font-weight: 700;
+            margin-top: 2px;
+            line-height: 1.2;
+        }
+
         .badge {
             display: inline-block;
             padding: 2px 6px;
@@ -599,6 +608,15 @@
                                     {% if not invoice.vehicle_make and not invoice.vehicle_model %}
                                         N/A
                                     {% endif %}
+                                    {% set items = glass_info.get(invoice.id, []) %}
+                                    {% if items %}
+                                        <div class="glass-nags-line">
+                                            🧊
+                                            {% for it in items %}
+                                                {{ it.nags }}{% if not loop.last %} · {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     ${{ "%.2f"|format(invoice.total or 0) }}
@@ -699,6 +717,15 @@
                                     {% if not invoice.vehicle_make and not invoice.vehicle_model %}
                                         N/A
                                     {% endif %}
+                                    {% set items = glass_info.get(invoice.id, []) %}
+                                    {% if items %}
+                                        <div class="glass-nags-line">
+                                            🧊
+                                            {% for it in items %}
+                                                {{ it.nags }}{% if not loop.last %} · {% endif %}
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
                                 </td>
                                 <td>
                                     ${{ "%.2f"|format(invoice.total or 0) }}
@@ -745,7 +772,7 @@
             }
         }
 
-        // NUEVO: Selección rápida de fecha (0 = hoy, 1 = mañana, 2 = pasado mañana)
+        // Selección rápida de fecha (0 = hoy, 1 = mañana, 2 = pasado mañana)
         function setQuickDate(offsetDays) {
             const d = new Date();
             d.setDate(d.getDate() + offsetDays);
