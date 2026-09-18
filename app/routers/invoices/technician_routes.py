@@ -1,9 +1,9 @@
 # RUTA: app/routers/invoices/technician_routes.py
 # CREADO: 2026-09-04
-# ACTUALIZADO: 2026-09-18 - Agregado customer_phone + city/state/zip + glass_info (NAGS por invoice)
+# ACTUALIZADO: 2026-09-18 - Agregado glass_pickup_list + endpoint /glass/{id}/received
 
 from fastapi import APIRouter, Depends, Request
-from fastapi.responses import HTMLResponse, RedirectResponse, Response
+from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
 from sqlalchemy.orm import Session
 from sqlalchemy import func
 from datetime import date, datetime
@@ -13,6 +13,7 @@ from xhtml2pdf import pisa
 from app.database.database import get_db
 from app.models.invoices.invoice_model import Invoice, InvoiceItem
 from app.models.invoices.invoice_payment_model import InvoicePayment
+from app.models.invoices.invoice_glass_model import InvoiceGlass
 from app.models.customers.customer_model import Customer
 from app.models.company.company import Company
 from app.core.template_loader import jinja as templates
@@ -104,7 +105,7 @@ def technician_dashboard(
     if user_role != "technician":
         return RedirectResponse(url="/company/main_menu", status_code=303)
 
-    # CAMBIO 2026-09-13: fecha seleccionable (default = hoy)
+    # Fecha seleccionable (default = hoy)
     if selected_date:
         try:
             target_date = datetime.strptime(selected_date, "%Y-%m-%d").date()
@@ -113,8 +114,8 @@ def technician_dashboard(
     else:
         target_date = date.today()
 
-    # CAMBIO 2026-09-13: filtrar por estimated_appointment_date (día de la cita)
-    # CAMBIO 2026-09-18: agregado customer_phone + city/state/zip
+    # Filtrado por estimated_appointment_date
+    # Incluye customer_phone + city/state/zip
     invoices = (
         db.query(
             Invoice.id,
@@ -141,9 +142,10 @@ def technician_dashboard(
         .all()
     )
 
-    # NUEVO 2026-09-18: construir dict con los items (NAGS) por invoice
+    # glass_info: dict con los items (NAGS) por invoice
     # Estructura: { invoice_id: [ {"nags": "...", "description": "...", "quantity": 1}, ... ] }
     glass_info = {}
+    invoice_ids = []
     if invoices:
         invoice_ids = [inv.id for inv in invoices]
         all_items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id.in_(invoice_ids)).all()
@@ -156,6 +158,30 @@ def technician_dashboard(
                 "quantity": item.quantity or 1,
             })
 
+    # glass_pickup_list: vidrios ORDERED de los invoices del día
+    glass_pickup_list = []
+    if invoice_ids:
+        glasses = (
+            db.query(InvoiceGlass)
+            .filter(InvoiceGlass.invoice_id.in_(invoice_ids))
+            .filter(InvoiceGlass.status == "ORDERED")
+            .order_by(InvoiceGlass.invoice_id.asc(), InvoiceGlass.id.asc())
+            .all()
+        )
+        inv_map = {inv.id: inv for inv in invoices}
+        for g in glasses:
+            inv = inv_map.get(g.invoice_id)
+            glass_pickup_list.append({
+                "id": g.id,
+                "invoice_id": g.invoice_id,
+                "nags_code": g.nags_code or "",
+                "description": g.description or "",
+                "glass_type": g.glass_type or "",
+                "position": g.position or "",
+                "vendor": g.vendor or "",
+                "customer_name": inv.customer_name if inv else "",
+            })
+
     # Obtener el nombre del técnico
     technician_name = request.session.get("user_name", "Técnico")
 
@@ -166,11 +192,55 @@ def technician_dashboard(
             "technician_name": technician_name,
             "invoices": invoices,
             "glass_info": glass_info,
+            "glass_pickup_list": glass_pickup_list,
             "today": date.today(),
             "target_date": target_date,
             "selected_date": target_date.strftime("%Y-%m-%d"),
         }
     )
+
+
+# ============================================================
+# NUEVO 2026-09-18: MARCAR VIDRIO COMO RECIBIDO
+# ============================================================
+@router.post("/glass/{glass_id}/received", response_class=JSONResponse)
+def mark_glass_received(
+    glass_id: int,
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    """
+    El técnico marca un vidrio como RECEIVED.
+    Guarda received_at + received_by.
+    """
+    user_id = request.session.get("user_id")
+    user_role = request.session.get("role")
+
+    if not user_id or user_role != "technician":
+        return JSONResponse({"success": False, "error": "Unauthorized"}, status_code=401)
+
+    glass = db.query(InvoiceGlass).filter(InvoiceGlass.id == glass_id).first()
+    if not glass:
+        return JSONResponse({"success": False, "error": "Glass not found"}, status_code=404)
+
+    if glass.status != "ORDERED":
+        return JSONResponse({"success": False, "error": f"Glass already marked as {glass.status}"}, status_code=400)
+
+    technician_name = request.session.get("user_name") or request.session.get("username") or "Technician"
+
+    glass.status = "RECEIVED"
+    glass.received_at = datetime.now()
+    glass.received_by = technician_name
+
+    db.commit()
+
+    return JSONResponse({
+        "success": True,
+        "message": f"✓ {glass.nags_code or 'Glass'} marked as Received",
+        "glass_id": glass.id,
+        "received_at": glass.received_at.isoformat() if glass.received_at else None,
+        "received_by": glass.received_by,
+    })
 
 
 # ============================================================

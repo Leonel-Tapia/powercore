@@ -1,4 +1,5 @@
 # /app/models/invoices/invoice_glass_model.py
+# ACTUALIZADO: 2026-09-18 - Agregado received_at + received_by (recepción por técnico)
 from sqlalchemy import Column, Integer, String, ForeignKey, DECIMAL, Date, TIMESTAMP, Text, Boolean
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -46,6 +47,10 @@ class InvoiceGlass(Base):
     return_date = Column(Date, nullable=True)
     return_reason = Column(String(255), nullable=True)
 
+    # NUEVO 2026-09-18: Recepción por parte del técnico
+    received_at = Column(TIMESTAMP, nullable=True)
+    received_by = Column(String(100), nullable=True)
+
     # Notas
     notes = Column(Text, nullable=True)
 
@@ -82,6 +87,8 @@ class InvoiceGlass(Base):
             "storage_location": self.storage_location,
             "return_date": self.return_date.isoformat() if self.return_date else None,
             "return_reason": self.return_reason,
+            "received_at": self.received_at.isoformat() if self.received_at else None,
+            "received_by": self.received_by,
             "notes": self.notes,
             "created_by": self.created_by,
             "created_at": self.created_at.isoformat() if self.created_at else None,
@@ -90,9 +97,13 @@ class InvoiceGlass(Base):
 
     # ===== Helpers de estado =====
 
-    def mark_received(self, storage_location: str = None):
-        """Marcar vidrio como recibido en tienda"""
+    def mark_received(self, storage_location: str = None, received_by: str = None):
+        """Marcar vidrio como recibido por el técnico"""
+        from datetime import datetime
         self.status = "RECEIVED"
+        self.received_at = datetime.now()
+        if received_by:
+            self.received_by = received_by
         if storage_location:
             self.storage_location = storage_location
 
