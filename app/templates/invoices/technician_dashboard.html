@@ -1,4 +1,4 @@
-<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-18 (Glass Pickup List modal + fix linter) -->
+<!-- RUTA: app/templates/invoices/technician_dashboard.html | ACTUALIZADO: 2026-09-19 (Daily Closing siempre activo) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -6,11 +6,7 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>PowerCore ERP - Technician Dashboard</title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
@@ -38,25 +34,10 @@
             flex-wrap: wrap;
         }
 
-        .header h1 {
-            font-size: 22px;
-            color: #0078D4;
-        }
-
-        .header .user-info {
-            font-size: 14px;
-            color: #555;
-        }
-
-        .header .user-info strong {
-            color: #0078D4;
-        }
-
-        .header .date-info {
-            font-size: 13px;
-            color: #777;
-            margin-top: 2px;
-        }
+        .header h1 { font-size: 22px; color: #0078D4; }
+        .header .user-info { font-size: 14px; color: #555; }
+        .header .user-info strong { color: #0078D4; }
+        .header .date-info { font-size: 13px; color: #777; margin-top: 2px; }
 
         .btn-logout {
             background-color: #d32f2f;
@@ -69,10 +50,7 @@
             text-decoration: none;
             display: inline-block;
         }
-
-        .btn-logout:hover {
-            background-color: #b71c1c;
-        }
+        .btn-logout:hover { background-color: #b71c1c; }
 
         .top-bar {
             display: flex;
@@ -133,20 +111,8 @@
             text-decoration: none;
             display: inline-block;
         }
-
-        .quick-date-btn:last-child {
-            border-right: none;
-        }
-
-        .quick-date-btn:hover {
-            background: #e7f1fb;
-            color: #005fa3;
-        }
-
-        .quick-date-btn.active {
-            background: #0078D4;
-            color: white;
-        }
+        .quick-date-btn:last-child { border-right: none; }
+        .quick-date-btn:hover { background: #e7f1fb; color: #005fa3; }
 
         .counters-inline {
             display: flex;
@@ -156,9 +122,7 @@
             align-items: center;
         }
 
-        .counters-inline .counter-item {
-            font-weight: 500;
-        }
+        .counters-inline .counter-item { font-weight: 500; }
 
         .counters-inline .counter-item .badge-count {
             display: inline-block;
@@ -169,22 +133,10 @@
             margin-left: 4px;
         }
 
-        .counters-inline .counter-shop .badge-count {
-            background-color: #e3f2fd;
-            color: #0d47a1;
-        }
+        .counters-inline .counter-shop .badge-count { background-color: #e3f2fd; color: #0d47a1; }
+        .counters-inline .counter-mobile .badge-count { background-color: #fff3e0; color: #e65100; }
+        .counters-inline .counter-total .badge-count { background-color: #0078D4; color: white; }
 
-        .counters-inline .counter-mobile .badge-count {
-            background-color: #fff3e0;
-            color: #e65100;
-        }
-
-        .counters-inline .counter-total .badge-count {
-            background-color: #0078D4;
-            color: white;
-        }
-
-        /* Barra de acciones (Glass Pickup + Daily Closing) */
         .action-bars {
             display: flex;
             gap: 10px;
@@ -192,10 +144,7 @@
             flex-wrap: wrap;
         }
 
-        .action-bars > * {
-            flex: 1;
-            min-width: 250px;
-        }
+        .action-bars > * { flex: 1; min-width: 250px; }
 
         .daily-closing-bar {
             display: flex;
@@ -220,23 +169,10 @@
             color: white;
         }
 
-        .daily-closing-bar-disabled {
-            background: linear-gradient(90deg, #6c757d 0%, #868e96 100%);
-            box-shadow: 0 2px 6px rgba(108, 117, 125, 0.3);
-            cursor: not-allowed;
-            opacity: 0.7;
-            pointer-events: none;
-        }
-
-        .daily-closing-bar .icon {
-            font-size: 20px;
-            margin-right: 10px;
-        }
-
+        .daily-closing-bar .icon { font-size: 20px; margin-right: 10px; }
         .daily-closing-bar .label { flex-grow: 0; }
         .daily-closing-bar .arrow { margin-left: 12px; }
 
-        /* Glass Pickup bar */
         .glass-pickup-bar {
             display: flex;
             justify-content: center;
@@ -260,10 +196,7 @@
             color: white;
         }
 
-        .glass-pickup-bar .icon {
-            font-size: 20px;
-            margin-right: 10px;
-        }
+        .glass-pickup-bar .icon { font-size: 20px; margin-right: 10px; }
 
         .glass-pickup-bar .count-badge {
             background: white;
@@ -286,11 +219,7 @@
             gap: 8px;
         }
 
-        .section-title .count {
-            font-size: 12px;
-            font-weight: 400;
-            color: #777;
-        }
+        .section-title .count { font-size: 12px; font-weight: 400; color: #777; }
 
         .section-divider {
             border: none;
@@ -405,9 +334,7 @@
         }
         .invoice-link:hover { text-decoration: underline; }
 
-        /* ============================================================ */
-        /* MODAL: GLASS PICKUP LIST                                      */
-        /* ============================================================ */
+        /* MODAL: GLASS PICKUP LIST */
         .modal-overlay {
             position: fixed;
             top: 0; left: 0;
@@ -420,9 +347,7 @@
             padding: 15px;
         }
 
-        .modal-overlay.active {
-            display: flex;
-        }
+        .modal-overlay.active { display: flex; }
 
         .modal-box {
             background: white;
@@ -445,10 +370,7 @@
             align-items: center;
         }
 
-        .modal-header h3 {
-            font-size: 17px;
-            font-weight: 600;
-        }
+        .modal-header h3 { font-size: 17px; font-weight: 600; }
 
         .modal-header .close-btn {
             background: transparent;
@@ -459,10 +381,7 @@
             line-height: 1;
             padding: 0 4px;
         }
-
-        .modal-header .close-btn:hover {
-            opacity: 0.8;
-        }
+        .modal-header .close-btn:hover { opacity: 0.8; }
 
         .modal-body {
             padding: 12px 16px;
@@ -493,13 +412,8 @@
             vertical-align: middle;
         }
 
-        .glass-pickup-table tr:last-child td {
-            border-bottom: none;
-        }
-
-        .glass-pickup-table tr:hover {
-            background: #f9fdfd;
-        }
+        .glass-pickup-table tr:last-child td { border-bottom: none; }
+        .glass-pickup-table tr:hover { background: #f9fdfd; }
 
         .glass-pickup-table .nags-cell {
             font-weight: 700;
@@ -519,15 +433,8 @@
             white-space: nowrap;
             transition: background 0.15s ease;
         }
-
-        .btn-received:hover {
-            background: #218838;
-        }
-
-        .btn-received:disabled {
-            background: #ccc;
-            cursor: not-allowed;
-        }
+        .btn-received:hover { background: #218838; }
+        .btn-received:disabled { background: #ccc; cursor: not-allowed; }
 
         .modal-footer {
             padding: 10px 16px;
@@ -538,10 +445,7 @@
             background: #fafafa;
         }
 
-        .modal-footer .info {
-            font-size: 12px;
-            color: #666;
-        }
+        .modal-footer .info { font-size: 12px; color: #666; }
 
         .modal-footer .btn-close-modal {
             background: #6c757d;
@@ -553,10 +457,7 @@
             font-weight: 600;
             cursor: pointer;
         }
-
-        .modal-footer .btn-close-modal:hover {
-            background: #5a6268;
-        }
+        .modal-footer .btn-close-modal:hover { background: #5a6268; }
 
         .glass-empty {
             text-align: center;
@@ -572,7 +473,6 @@
             opacity: 0.5;
         }
 
-        /* Toast */
         .toast {
             position: fixed;
             top: 20px;
@@ -589,15 +489,8 @@
             transition: opacity 0.25s ease, transform 0.25s ease;
             z-index: 10000;
         }
-
-        .toast.show {
-            opacity: 1;
-            transform: translateY(0);
-        }
-
-        .toast.error {
-            background: #dc3545;
-        }
+        .toast.show { opacity: 1; transform: translateY(0); }
+        .toast.error { background: #dc3545; }
 
         @media (max-width: 768px) {
             .container { padding: 10px 15px; }
@@ -676,7 +569,7 @@
             </div>
         </div>
 
-        <!-- ACTION BARS: Glass Pickup + Daily Closing -->
+        <!-- ACTION BARS: Glass Pickup + Daily Closing (siempre activo) -->
         <div class="action-bars">
             {% if glass_pickup_list and glass_pickup_list|length > 0 %}
                 <button type="button" class="glass-pickup-bar" onclick="openGlassPickupModal()">
@@ -686,24 +579,14 @@
                 </button>
             {% endif %}
 
-            {% if invoices %}
-                <a href="/technician/daily-closing?selected_date={{ selected_date }}" class="daily-closing-bar">
-                    <span class="icon">📊</span>
-                    <span class="label">Daily Closing Report</span>
-                    <span class="arrow">→</span>
-                </a>
-            {% else %}
-                <div class="daily-closing-bar daily-closing-bar-disabled">
-                    <span class="icon">📊</span>
-                    <span class="label">Daily Closing Report</span>
-                    <span class="arrow">→</span>
-                </div>
-            {% endif %}
+            <a href="/technician/daily-closing?selected_date={{ selected_date }}" class="daily-closing-bar">
+                <span class="icon">📊</span>
+                <span class="label">Daily Closing Report</span>
+                <span class="arrow">→</span>
+            </a>
         </div>
 
-        <!-- ============================================ -->
         <!-- SHOP SECTION -->
-        <!-- ============================================ -->
         {% if shop_list %}
             <div class="section-title">
                 🏪 Shop <span class="count">({{ shop_list|length }} appointments)</span>
@@ -800,9 +683,7 @@
             {% endif %}
         {% endif %}
 
-        <!-- ============================================ -->
         <!-- MOBILE SECTION -->
-        <!-- ============================================ -->
         <div class="section-title">
             🚐 Mobile <span class="count">({{ mobile_list|length }} appointments)</span>
         </div>
@@ -900,9 +781,7 @@
         {% endif %}
     </div>
 
-    <!-- ============================================================ -->
-    <!-- MODAL: GLASS PICKUP LIST                                     -->
-    <!-- ============================================================ -->
+    <!-- MODAL: GLASS PICKUP LIST -->
     <div class="modal-overlay" id="glassPickupModal">
         <div class="modal-box">
             <div class="modal-header">
@@ -992,9 +871,7 @@
             }
         })();
 
-        // ============================================================
         // GLASS PICKUP MODAL
-        // ============================================================
         function openGlassPickupModal() {
             document.getElementById('glassPickupModal').classList.add('active');
         }
@@ -1003,7 +880,6 @@
             document.getElementById('glassPickupModal').classList.remove('active');
         }
 
-        // Cerrar modal al hacer clic fuera del cuadro
         document.getElementById('glassPickupModal').addEventListener('click', function(e) {
             if (e.target === this) {
                 closeGlassPickupModal();
@@ -1036,7 +912,6 @@
 
                     showToast(data.message || '✓ Marked as Received');
 
-                    // Actualizar contador
                     const badge = document.getElementById('glassCountBadge');
                     const pendingSpan = document.getElementById('glassPendingCount');
                     const newCount = Math.max(0, parseInt(pendingSpan.textContent || '0') - 1);
@@ -1044,7 +919,6 @@
                     if (badge) {
                         if (newCount === 0) {
                             badge.textContent = '0';
-                            // Si ya no hay pendientes, cerrar modal y recargar
                             setTimeout(() => {
                                 closeGlassPickupModal();
                                 location.reload();

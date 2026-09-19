@@ -1,4 +1,4 @@
-<!-- RUTA: app/templates/invoices/technician_daily_closing.html | ACTUALIZADO: 2026-09-13 -->
+<!-- RUTA: app/templates/invoices/technician_daily_closing.html | ACTUALIZADO: 2026-09-19 (compactado) -->
 <!DOCTYPE html>
 <html lang="en">
 <head>
@@ -11,7 +11,7 @@
         body {
             font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
             background-color: #f0f2f5;
-            padding: 20px;
+            padding: 10px;
             color: #333;
         }
 
@@ -19,9 +19,9 @@
             max-width: 1100px;
             margin: 0 auto;
             background: white;
-            border-radius: 12px;
-            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
-            padding: 25px 30px;
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            padding: 12px 18px 15px 18px;
         }
 
         .header {
@@ -29,36 +29,36 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 2px solid #0078D4;
-            padding-bottom: 10px;
-            margin-bottom: 15px;
+            padding-bottom: 5px;
+            margin-bottom: 8px;
             flex-wrap: wrap;
-            gap: 10px;
+            gap: 8px;
         }
 
         .header h1 {
-            font-size: 22px;
+            font-size: 17px;
             color: #0078D4;
         }
 
         .header .meta {
-            font-size: 13px;
+            font-size: 12px;
             color: #555;
-            margin-top: 4px;
+            margin-top: 2px;
         }
 
         .header .meta strong { color: #0078D4; }
 
         .header-actions {
             display: flex;
-            gap: 8px;
+            gap: 6px;
         }
 
         .btn {
             border: none;
-            padding: 8px 14px;
+            padding: 5px 10px;
             border-radius: 4px;
             cursor: pointer;
-            font-size: 13px;
+            font-size: 12px;
             text-decoration: none;
             display: inline-block;
             font-weight: 600;
@@ -75,37 +75,37 @@
 
         .filters {
             display: flex;
-            gap: 15px;
+            gap: 10px;
             align-items: center;
             background: #f8f9fa;
-            padding: 10px 15px;
-            border-radius: 8px;
-            margin-bottom: 18px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            margin-bottom: 8px;
             flex-wrap: wrap;
         }
 
         .filters label {
-            font-size: 13px;
+            font-size: 12px;
             font-weight: 600;
             color: #555;
         }
 
         .filters input[type="date"],
         .filters select {
-            padding: 6px 10px;
+            padding: 4px 8px;
             border: 1px solid #ccc;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
             font-family: inherit;
         }
 
         .filters button {
-            padding: 6px 14px;
+            padding: 4px 12px;
             background: #0078D4;
             color: white;
             border: none;
             border-radius: 4px;
-            font-size: 13px;
+            font-size: 12px;
             cursor: pointer;
             font-weight: 600;
         }
@@ -113,11 +113,11 @@
         .filters button:hover { background: #005fa3; }
 
         .section-title {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 600;
-            padding: 8px 0 6px 0;
-            border-bottom: 2px solid #e0e0e0;
-            margin-bottom: 10px;
+            padding: 3px 0;
+            border-bottom: 1px solid #e0e0e0;
+            margin-bottom: 5px;
             display: flex;
             align-items: center;
             justify-content: space-between;
@@ -127,26 +127,27 @@
             border: 1px solid #e0e0e0;
             border-radius: 4px;
             overflow: hidden;
-            margin-bottom: 20px;
+            margin-bottom: 8px;
         }
 
         table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 13px;
+            font-size: 12px;
         }
 
         thead th {
             background-color: #0078D4;
             color: white;
-            padding: 8px 10px;
+            padding: 4px 8px;
             text-align: left;
             font-weight: 600;
             white-space: nowrap;
+            font-size: 11px;
         }
 
         tbody td {
-            padding: 6px 10px;
+            padding: 4px 8px;
             border-bottom: 1px solid #e8e8e8;
             vertical-align: middle;
         }
@@ -156,9 +157,9 @@
 
         .badge {
             display: inline-block;
-            padding: 2px 8px;
+            padding: 2px 7px;
             border-radius: 10px;
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
         }
 
@@ -167,39 +168,38 @@
 
         .empty-state {
             text-align: center;
-            padding: 30px;
+            padding: 15px;
             color: #999;
             font-style: italic;
-            font-size: 14px;
+            font-size: 12px;
         }
 
         .totals-box {
             background: #f8f9fa;
             border: 2px solid #0078D4;
-            border-radius: 8px;
-            padding: 15px 20px;
-            margin-top: 10px;
+            border-radius: 6px;
+            padding: 8px 14px;
         }
 
         .totals-box h3 {
-            font-size: 15px;
+            font-size: 13px;
             color: #0078D4;
-            margin-bottom: 12px;
+            margin-bottom: 6px;
             border-bottom: 1px solid #d0e0f0;
-            padding-bottom: 6px;
+            padding-bottom: 3px;
         }
 
         .totals-grid {
             display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
-            gap: 10px 20px;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 3px 15px;
         }
 
         .total-row {
             display: flex;
             justify-content: space-between;
-            font-size: 14px;
-            padding: 4px 0;
+            font-size: 12px;
+            padding: 1px 0;
         }
 
         .total-row .label { color: #555; }
@@ -209,18 +209,18 @@
             grid-column: 1 / -1;
             display: flex;
             justify-content: space-between;
-            padding: 12px 0 4px 0;
-            margin-top: 10px;
+            padding: 5px 0 2px 0;
+            margin-top: 4px;
             border-top: 2px solid #0078D4;
-            font-size: 18px;
+            font-size: 15px;
             font-weight: 700;
             color: #0078D4;
         }
 
         @media (max-width: 768px) {
-            .container { padding: 15px; }
+            .container { padding: 10px 12px; }
             .header { flex-direction: column; align-items: flex-start; }
-            thead th, tbody td { padding: 5px 6px; font-size: 12px; }
+            thead th, tbody td { padding: 3px 5px; font-size: 11px; }
         }
     </style>
 </head>
@@ -240,8 +240,6 @@
                 </div>
             </div>
             <div class="header-actions">
-                <!-- CAMBIO 2026-09-13: Print → Download PDF -->
-                <!-- CAMBIO 2026-09-13 v2: se desactiva si no hay pagos -->
                 {% if payments %}
                     <a href="/technician/daily-closing/download?selected_date={{ selected_date }}&service_type={{ service_type }}"
                        class="btn btn-success">
@@ -276,7 +274,7 @@
         <!-- TABLA DE PAGOS -->
         <div class="section-title">
             <span>💵 Payments Received</span>
-            <span style="font-size:12px; color:#777; font-weight:400;">{{ payments|length }} payment{{ 's' if payments|length != 1 else '' }}</span>
+            <span style="font-size:11px; color:#777; font-weight:400;">{{ payments|length }} payment{{ 's' if payments|length != 1 else '' }}</span>
         </div>
 
         {% if payments %}

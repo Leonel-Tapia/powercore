@@ -1,4 +1,4 @@
-# /app/routers/invoices/invoices_router.py | Updated: 2026-09-16 (glass_needed for workshop)
+# /app/routers/invoices/invoices_router.py | Updated: 2026-09-19 (fix: no sobreescribir con NULL)
 from fastapi import APIRouter, Request, Depends, Form, HTTPException, Path, status, Query
 from fastapi.responses import HTMLResponse, RedirectResponse, JSONResponse, Response
 from sqlalchemy.orm import Session, joinedload
@@ -237,8 +237,14 @@ def update_invoice(
         inv.vehicle_vin = vehicle_vin
         inv.vehicle_make = vehicle_make
         inv.vehicle_model = vehicle_model
-        inv.estimated_appointment_date = estimated_appointment_date
-        inv.estimated_appointment_time = estimated_appointment_time
+        
+        # FIX 2026-09-19: NO sobreescribir con NULL si el form no envía valor
+        # (evita borrar fecha y técnico por accidente)
+        if estimated_appointment_date and str(estimated_appointment_date).strip():
+            inv.estimated_appointment_date = estimated_appointment_date
+        if estimated_appointment_time and str(estimated_appointment_time).strip():
+            inv.estimated_appointment_time = estimated_appointment_time
+        
         inv.labor_cost = labor
         inv.materials_cost = mat
         inv.misc_cost = misc
@@ -249,7 +255,10 @@ def update_invoice(
         inv.alt_contact_phone = alt_phone
         inv.alt_contact_relation = alt_relationship
         inv.mobile_fee_override = (mobile_fee_override == "true")
-        inv.technician_id = technician_id
+        
+        # FIX 2026-09-19: NO sobreescribir technician_id con NULL
+        if technician_id is not None:
+            inv.technician_id = technician_id
         
         db.query(InvoiceItem).filter(InvoiceItem.invoice_id == target_id).delete()
         db.commit()
@@ -792,20 +801,18 @@ def invoices_workshop_view(
     invoices = base_query.order_by(asc(Invoice.estimated_appointment_time)).all()
     
     invoices_data = []
-    tech_names = {}     # {invoice_id: "Nombre del técnico" | None}
-    glass_needed = {}   # {invoice_id: {nags, description, extra_count} | None}
+    tech_names = {}
+    glass_needed = {}
     
     for inv in invoices:
         customer = db.query(Customer).filter(Customer.id == inv.customer_id).first() if inv.customer_id else None
         
-        # Nombre del técnico asignado al invoice (si existe)
         if inv.technician_id:
             tech = db.query(User).filter(User.id == inv.technician_id).first()
             tech_names[inv.id] = (tech.full_name or tech.username) if tech else None
         else:
             tech_names[inv.id] = None
         
-        # Vidrio requerido por el invoice (primer item + conteo extra)
         items = db.query(InvoiceItem).filter(InvoiceItem.invoice_id == inv.id).all()
         if items:
             first = items[0]
@@ -835,7 +842,6 @@ def invoices_workshop_view(
     
     user_role = request.session.get("role", "").strip().lower()
     
-    # CAMBIO 2026-09-14: verificar si hay origin_address configurado
     company = db.query(Company).first()
     has_origin_address = bool(company and company.origin_address and company.origin_address.strip())
     
@@ -1029,13 +1035,11 @@ async def optimize_invoices_route(
     Calcula la ruta óptima desde la base (Company.origin_address) para las facturas de un día.
     Guarda la hora sugerida en tentative_time SIN modificar estimated_appointment_time.
     """
-    # 1. Parsear fecha
     try:
         target_date = datetime.strptime(date, "%Y-%m-%d").date()
     except ValueError:
         raise HTTPException(status_code=400, detail="Formato de fecha inválido. Usa YYYY-MM-DD")
     
-    # 2. CAMBIO 2026-09-14: obtener origin_address de la BD (Company)
     company = db.query(Company).first()
     origin_address = company.origin_address.strip() if company and company.origin_address else ""
     
@@ -1045,7 +1049,6 @@ async def optimize_invoices_route(
             detail="Origin address not configured. Please set it in Manager → Company → Edit."
         )
     
-    # 3. Obtener facturas del día (y técnico si se especifica)
     query = db.query(Invoice)
     query = query.filter(Invoice.estimated_appointment_date == target_date)
     
@@ -1062,7 +1065,6 @@ async def optimize_invoices_route(
             "origin": origin_address
         }
     
-    # 4. Preparar lista de facturas con coordenadas de cliente
     invoices_data = []
     for inv in invoices:
         customer = db.query(Customer).filter(Customer.id == inv.customer_id).first()
@@ -1106,7 +1108,6 @@ async def optimize_invoices_route(
             "route": []
         }
     
-    # 5. Geocodificar la dirección base (desde BD)
     origin_coords = geocode_address(origin_address)
     if not origin_coords:
         raise HTTPException(
@@ -1114,7 +1115,6 @@ async def optimize_invoices_route(
             detail=f"Could not geocode origin address: '{origin_address}'. Please verify it in Manager → Company."
         )
     
-    # 6. Calcular ruta óptima (hora de salida: 8:00 AM)
     start_time = datetime.combine(target_date, datetime.strptime("08:00:00", "%H:%M:%S").time())
     
     try:
@@ -1127,14 +1127,12 @@ async def optimize_invoices_route(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Error al optimizar ruta: {str(e)}")
     
-    # 7. Guardar tentative_time en cada factura
     for item in optimized_route:
         inv = item.get("invoice_obj")
         if inv:
             inv.tentative_time = item["suggested_arrival"]
     db.commit()
     
-    # 8. Formatear respuesta
     result = []
     for item in optimized_route:
         result.append({
