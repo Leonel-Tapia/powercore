@@ -1,6 +1,6 @@
 # RUTA: app/routers/invoices/technician_routes.py
 # CREADO: 2026-09-04
-# ACTUALIZADO: 2026-09-18 - Agregado glass_pickup_list + endpoint /glass/{id}/received
+# ACTUALIZADO: 2026-09-19 - Agregado Invoice.status al query (badge usa status, no payment_status)
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, JSONResponse
@@ -115,7 +115,7 @@ def technician_dashboard(
         target_date = date.today()
 
     # Filtrado por estimated_appointment_date
-    # Incluye customer_phone + city/state/zip
+    # Incluye customer_phone + city/state/zip + status (para el badge)
     invoices = (
         db.query(
             Invoice.id,
@@ -130,6 +130,7 @@ def technician_dashboard(
             Invoice.vehicle_make,
             Invoice.vehicle_model,
             Invoice.total,
+            Invoice.status,
             Invoice.payment_status,
             Invoice.payment_amount1,
             Invoice.payment_amount2,
@@ -201,7 +202,7 @@ def technician_dashboard(
 
 
 # ============================================================
-# NUEVO 2026-09-18: MARCAR VIDRIO COMO RECIBIDO
+# MARCAR VIDRIO COMO RECIBIDO
 # ============================================================
 @router.post("/glass/{glass_id}/received", response_class=JSONResponse)
 def mark_glass_received(
