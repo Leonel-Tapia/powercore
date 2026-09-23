@@ -127,7 +127,7 @@
 
         <!-- 🔥 CONTADOR DE CLIENTES -->
         <div class="customer-count">
-            Total customers: {{ customers|length }}
+            Total customers: {{ total }}
         </div>
 
         <div class="top-bar">
@@ -191,6 +191,46 @@
                 {% endfor %}
             </tbody>
         </table>
+
+        <!-- 🔥 PAGINACIÓN -->
+        {% if total_pages and total_pages > 1 %}
+        {% set pag_origin = request.query_params.get('origin', '') %}
+        {% set pag_search = search or '' %}
+        {% set w_start = [1, page - 2] | max %}
+        {% set w_end = [total_pages, page + 2] | min %}
+        <div class="pagination">
+            {% if page > 1 %}
+                <a href="?page={{ page - 1 }}{% if pag_search %}&search={{ pag_search | urlencode }}{% endif %}{% if pag_origin %}&origin={{ pag_origin }}{% endif %}">← Prev</a>
+            {% else %}
+                <span class="disabled">← Prev</span>
+            {% endif %}
+
+            {% if w_start > 1 %}
+                <a href="?page=1{% if pag_search %}&search={{ pag_search | urlencode }}{% endif %}{% if pag_origin %}&origin={{ pag_origin }}{% endif %}">1</a>
+                {% if w_start > 2 %}<span class="disabled">…</span>{% endif %}
+            {% endif %}
+
+            {% for p in range(w_start, w_end + 1) %}
+                {% if p == page %}
+                    <a class="active" href="?page={{ p }}{% if pag_search %}&search={{ pag_search | urlencode }}{% endif %}{% if pag_origin %}&origin={{ pag_origin }}{% endif %}">{{ p }}</a>
+                {% else %}
+                    <a href="?page={{ p }}{% if pag_search %}&search={{ pag_search | urlencode }}{% endif %}{% if pag_origin %}&origin={{ pag_origin }}{% endif %}">{{ p }}</a>
+                {% endif %}
+            {% endfor %}
+
+            {% if w_end < total_pages %}
+                {% if w_end < total_pages - 1 %}<span class="disabled">…</span>{% endif %}
+                <a href="?page={{ total_pages }}{% if pag_search %}&search={{ pag_search | urlencode }}{% endif %}{% if pag_origin %}&origin={{ pag_origin }}{% endif %}">{{ total_pages }}</a>
+            {% endif %}
+
+            {% if page < total_pages %}
+                <a href="?page={{ page + 1 }}{% if pag_search %}&search={{ pag_search | urlencode }}{% endif %}{% if pag_origin %}&origin={{ pag_origin }}{% endif %}">Next →</a>
+            {% else %}
+                <span class="disabled">Next →</span>
+            {% endif %}
+        </div>
+        {% endif %}
+        <!-- ================================ -->
     </div>
 
     <script>

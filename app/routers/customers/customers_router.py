@@ -80,6 +80,7 @@ def customers_list(
         name="customers/customers_list.html",
         context={
             "customers": customers,
+            "total": total,
             "page": page,
             "total_pages": total_pages,
             "search": search
